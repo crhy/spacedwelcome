@@ -21,7 +21,7 @@ modules:
       - install -Dm755 bin/spaced-welcome-install /app/bin/spaced-welcome-install
       - mkdir -p /app/share/spacedwelcome/lib
       - cp -r src/spaced_welcome /app/share/spacedwelcome/lib/
-      - install -Dm644 data/catalog.json /app/share/spaced-welcome/catalog.json
+      - install -Dm644 data/catalog.json /app/share/spacedwelcome/data/catalog.json
       # The wrappers exec python3 -m spaced_welcome; point them at the lib.
       - sed -i '2i export PYTHONPATH=/app/share/spacedwelcome/lib' /app/bin/spaced-welcome
       - sed -i '2i export PYTHONPATH=/app/share/spacedwelcome/lib' /app/bin/spaced-welcome-install
