@@ -1,0 +1,35 @@
+app-id: io.github.crhy.SpacedWelcome
+runtime: org.gnome.Platform
+runtime-version: "50"
+sdk: org.gnome.Sdk
+command: spaced-welcome
+separate-locales: false
+finish-args:
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  # Downloads release assets and queries Flathub/GitHub.
+  - --share=network
+  # Installs applications into the host user installation.
+  - --filesystem=xdg-data/flatpak
+  - --talk-name=org.freedesktop.Flatpak
+modules:
+  - name: spaced-welcome
+    buildsystem: simple
+    build-commands:
+      - install -Dm755 bin/spaced-welcome /app/bin/spaced-welcome
+      - install -Dm755 bin/spaced-welcome-install /app/bin/spaced-welcome-install
+      - mkdir -p /app/share/spacedwelcome/lib
+      - cp -r src/spaced_welcome /app/share/spacedwelcome/lib/
+      - install -Dm644 data/catalog.json /app/share/spaced-welcome/catalog.json
+      # The wrappers exec python3 -m spaced_welcome; point them at the lib.
+      - sed -i '2i export PYTHONPATH=/app/share/spacedwelcome/lib' /app/bin/spaced-welcome
+      - sed -i '2i export PYTHONPATH=/app/share/spacedwelcome/lib' /app/bin/spaced-welcome-install
+      - install -Dm644 data/spaced-welcome.desktop /app/share/applications/io.github.crhy.SpacedWelcome.desktop
+      - install -Dm644 data/io.github.crhy.SpacedWelcome.metainfo.xml -t /app/share/metainfo/
+      - install -Dm644 data/icons/hicolor/scalable/apps/spaced-welcome.svg /app/share/icons/hicolor/scalable/apps/io.github.crhy.SpacedWelcome.svg
+      - install -Dm644 flatpak/icon-128.png /app/share/icons/hicolor/128x128/apps/io.github.crhy.SpacedWelcome.png
+      - install -Dm644 flatpak/icon-64.png /app/share/icons/hicolor/64x64/apps/io.github.crhy.SpacedWelcome.png
+    sources:
+      - type: dir
+        path: ..

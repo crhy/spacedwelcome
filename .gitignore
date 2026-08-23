@@ -5,3 +5,7 @@ __pycache__/
 dist/*
 !dist/.gitkeep
 
+
+# Flatpak build outputs
+sw-repo/
+bz-repo/
