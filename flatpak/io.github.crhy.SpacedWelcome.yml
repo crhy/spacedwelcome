@@ -19,12 +19,18 @@ modules:
     build-commands:
       - install -Dm755 bin/spaced-welcome /app/bin/spaced-welcome
       - install -Dm755 bin/spaced-welcome-install /app/bin/spaced-welcome-install
+      # The UI resolves the helper relative to its own tree
+      # (../bin/spaced-welcome-install); provide it there too.
+      - install -Dm755 bin/spaced-welcome /app/share/spacedwelcome/bin/spaced-welcome
+      - install -Dm755 bin/spaced-welcome-install /app/share/spacedwelcome/bin/spaced-welcome-install
       - mkdir -p /app/share/spacedwelcome/lib
       - cp -r src/spaced_welcome /app/share/spacedwelcome/lib/
       - install -Dm644 data/catalog.json /app/share/spacedwelcome/data/catalog.json
       # The wrappers exec python3 -m spaced_welcome; point them at the lib.
       - sed -i '2i export PYTHONPATH=/app/share/spacedwelcome/lib' /app/bin/spaced-welcome
       - sed -i '2i export PYTHONPATH=/app/share/spacedwelcome/lib' /app/bin/spaced-welcome-install
+      - sed -i '2i export PYTHONPATH=/app/share/spacedwelcome/lib' /app/share/spacedwelcome/bin/spaced-welcome
+      - sed -i '2i export PYTHONPATH=/app/share/spacedwelcome/lib' /app/share/spacedwelcome/bin/spaced-welcome-install
       - install -Dm644 data/spaced-welcome.desktop /app/share/applications/io.github.crhy.SpacedWelcome.desktop
       - install -Dm644 data/io.github.crhy.SpacedWelcome.metainfo.xml -t /app/share/metainfo/
       - install -Dm644 data/icons/hicolor/scalable/apps/spaced-welcome.svg /app/share/icons/hicolor/scalable/apps/io.github.crhy.SpacedWelcome.svg
