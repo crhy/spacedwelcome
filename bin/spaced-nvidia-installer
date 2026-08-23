@@ -1,0 +1,3 @@
+#!/bin/sh
+# Spaced NVIDIA Installer - launches nvidia-settings on the host
+exec flatpak-spawn --host nvidia-settings "$@"
