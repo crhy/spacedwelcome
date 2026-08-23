@@ -1,0 +1,4 @@
+#!/bin/sh
+# Same as spaced-host-flatpak: run ostree on the host so staged paths,
+# which are shared via --filesystem=xdg-cache, stay consistent.
+exec flatpak-spawn --host ostree "$@"

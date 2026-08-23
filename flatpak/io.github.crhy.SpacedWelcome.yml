@@ -12,6 +12,8 @@ finish-args:
   - --share=network
   # Installs applications into the host user installation.
   - --filesystem=xdg-data/flatpak
+  # The download/staging cache is shared with spawned host processes.
+  - --filesystem=xdg-cache
   - --talk-name=org.freedesktop.Flatpak
 modules:
   - name: spaced-welcome
@@ -29,6 +31,12 @@ modules:
       # The wrappers exec python3 -m spaced_welcome; point them at the lib.
       - sed -i '2i export PYTHONPATH=/app/share/spacedwelcome/lib' /app/bin/spaced-welcome
       - sed -i '2i export PYTHONPATH=/app/share/spacedwelcome/lib' /app/bin/spaced-welcome-install
+      - install -Dm755 bin/spaced-host-flatpak /app/share/spacedwelcome/bin/spaced-host-flatpak
+      - install -Dm755 bin/spaced-host-ostree /app/share/spacedwelcome/bin/spaced-host-ostree
+      - for f in /app/bin/spaced-welcome /app/bin/spaced-welcome-install /app/share/spacedwelcome/bin/spaced-welcome /app/share/spacedwelcome/bin/spaced-welcome-install; do
+            sed -i '3i export SPACED_WELCOME_FLATPAK=/app/share/spacedwelcome/bin/spaced-host-flatpak' "$f";
+            sed -i '4i export SPACED_WELCOME_OSTREE=/app/share/spacedwelcome/bin/spaced-host-ostree' "$f";
+        done
       - sed -i '2i export PYTHONPATH=/app/share/spacedwelcome/lib' /app/share/spacedwelcome/bin/spaced-welcome
       - sed -i '2i export PYTHONPATH=/app/share/spacedwelcome/lib' /app/share/spacedwelcome/bin/spaced-welcome-install
       - install -Dm644 data/spaced-welcome.desktop /app/share/applications/io.github.crhy.SpacedWelcome.desktop

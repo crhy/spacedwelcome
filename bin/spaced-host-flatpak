@@ -1,0 +1,4 @@
+#!/bin/sh
+# Inside the Spaced Welcome flatpak, flatpak operations must run against
+# the host installation. flatpak-spawn provides that bridge.
+exec flatpak-spawn --host flatpak "$@"
