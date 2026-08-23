@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+.coverage
+.ruff_cache/
+dist/*
+!dist/.gitkeep
+

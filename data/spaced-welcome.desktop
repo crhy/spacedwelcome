@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Spaced Linux Welcome
+GenericName=Application Setup
+Comment=Install verified applications and open SpacedBazaar
+Exec=spaced-welcome
+Icon=spaced-welcome
+Terminal=false
+Categories=System;
+StartupNotify=true

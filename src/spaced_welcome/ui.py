@@ -1,0 +1,366 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""GTK 3 first-run interface for Spaced Welcome."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import threading
+from typing import Any
+
+import gi
+
+gi.require_version("Gtk", "3.0")
+from gi.repository import GLib, Gtk  # noqa: E402
+
+from .catalog import App, CatalogError, load_catalog
+from .progress import ProgressModel
+
+
+CSS = b"""
+window.spaced-welcome, window.spaced-welcome .app-surface {
+  background-color: #17191c;
+  color: #f4f4f4;
+}
+.hero-title { font-size: 28px; font-weight: 700; color: #f4f4f4; }
+.hero-subtitle { font-size: 14px; color: #b8bbc2; }
+.choice-card {
+  background-image: none;
+  background-color: #1f2329;
+  border: 1px solid #3a3f47;
+  border-radius: 10px;
+  padding: 13px 16px;
+  color: #f4f4f4;
+  box-shadow: none;
+}
+.choice-card:hover { background-color: #262b33; border-color: #6e9de8; }
+.choice-card:active { background-color: #171a1f; border-color: #4f6bb0; }
+.choice-title { font-size: 16px; font-weight: 700; color: #f4f4f4; }
+.choice-detail, .app-detail { font-size: 11px; color: #b8bbc2; }
+.choice-icon, .source-label { color: #6e9de8; }
+.app-row { padding: 8px 10px; border-bottom: 1px solid #30343b; }
+.app-name { font-weight: 700; color: #f4f4f4; }
+.app-status { font-size: 11px; color: #c6c9cf; }
+.status { font-size: 12px; color: #c6c9cf; }
+textview, textview text { background-color: #111316; color: #d9dce2; }
+"""
+
+
+class AppRow(Gtk.Box):
+    def __init__(self, app: App):
+        super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        self.app = app
+        self.get_style_context().add_class("app-row")
+
+        labels = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        name = Gtk.Label(label=app.name, xalign=0)
+        name.get_style_context().add_class("app-name")
+        detail = Gtk.Label(label=app.description, xalign=0)
+        detail.set_ellipsize(3)
+        detail.get_style_context().add_class("app-detail")
+        labels.pack_start(name, False, False, 0)
+        labels.pack_start(detail, False, False, 0)
+        self.pack_start(labels, True, True, 0)
+
+        source = Gtk.Label(label=app.source_label)
+        source.get_style_context().add_class("source-label")
+        source.set_width_chars(8)
+        self.pack_start(source, False, False, 0)
+
+        self.status = Gtk.Label(label=f"Ready · {app.source_label}", xalign=0)
+        self.status.set_width_chars(34)
+        self.status.set_line_wrap(True)
+        self.status.get_style_context().add_class("app-status")
+        self.pack_start(self.status, False, False, 0)
+
+
+class WelcomeWindow(Gtk.Window):
+    def __init__(self):
+        super().__init__(title="Welcome to Spaced Linux")
+        self.set_name("spaced-welcome")
+        self.get_style_context().add_class("spaced-welcome")
+        self.set_default_size(900, 720)
+        self.set_position(Gtk.WindowPosition.CENTER)
+        self.set_border_width(0)
+        self.catalog = load_catalog()
+        self.model = ProgressModel()
+        self.rows: dict[str, AppRow] = {}
+        self.install_process: subprocess.Popen[str] | None = None
+
+        provider = Gtk.CssProvider()
+        provider.load_from_data(CSS)
+        Gtk.StyleContext.add_provider_for_screen(
+            self.get_screen(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
+
+        surface = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        surface.get_style_context().add_class("app-surface")
+        surface.set_border_width(28)
+        self.add(surface)
+
+        title = Gtk.Label(label="Welcome to Spaced Linux")
+        title.get_style_context().add_class("hero-title")
+        surface.pack_start(title, False, False, 0)
+        subtitle = Gtk.Label(
+            label="SpacedBazaar is ready now. Add the suggested applications whenever you like."
+        )
+        subtitle.get_style_context().add_class("hero-subtitle")
+        subtitle.set_margin_top(4)
+        subtitle.set_margin_bottom(18)
+        surface.pack_start(subtitle, False, False, 0)
+
+        actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        self.suggested_button = self._choice(
+            "system-software-install", "Install Suggested Apps", "Flathub and verified GitHub releases"
+        )
+        self.suggested_button.connect("clicked", self._start_suggested_install)
+        actions.pack_start(self.suggested_button, True, True, 0)
+        self.bazaar_button = self._choice(
+            "system-software-update", "Open SpacedBazaar", "Already installed with Spaced Linux"
+        )
+        self.bazaar_button.connect("clicked", self._open_bazaar)
+        actions.pack_start(self.bazaar_button, True, True, 0)
+        self.nvidia_button = self._choice(
+            "video-display", "NVIDIA Drivers", "Open the graphics driver setup"
+        )
+        self.nvidia_button.connect("clicked", self._open_nvidia_installer)
+        actions.pack_start(self.nvidia_button, True, True, 0)
+        surface.pack_start(actions, False, False, 0)
+
+        apps_label = Gtk.Label(label="Suggested applications", xalign=0)
+        apps_label.get_style_context().add_class("choice-title")
+        apps_label.set_margin_top(18)
+        apps_label.set_margin_bottom(6)
+        surface.pack_start(apps_label, False, False, 0)
+
+        app_scroll = Gtk.ScrolledWindow()
+        app_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        app_scroll.set_min_content_height(230)
+        app_scroll.set_shadow_type(Gtk.ShadowType.IN)
+        app_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        for app in self.catalog.suggested():
+            row = AppRow(app)
+            self.rows[app.key] = row
+            app_box.pack_start(row, False, False, 0)
+        app_scroll.add(app_box)
+        surface.pack_start(app_scroll, True, True, 0)
+
+        status_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        status_box.set_halign(Gtk.Align.CENTER)
+        status_box.set_margin_top(12)
+        self.spinner = Gtk.Spinner()
+        status_box.pack_start(self.spinner, False, False, 0)
+        self.status = Gtk.Label(label="Nothing else is installed until you choose.")
+        self.status.get_style_context().add_class("status")
+        status_box.pack_start(self.status, False, False, 0)
+        surface.pack_start(status_box, False, False, 0)
+
+        self.details_expander = Gtk.Expander(label="Details")
+        self.details_expander.set_margin_top(8)
+        detail_scroll = Gtk.ScrolledWindow()
+        detail_scroll.set_min_content_height(125)
+        detail_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        self.details = Gtk.TextView()
+        self.details.set_editable(False)
+        self.details.set_cursor_visible(False)
+        self.details.set_monospace(True)
+        self.details.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        detail_scroll.add(self.details)
+        self.details_expander.add(detail_scroll)
+        surface.pack_start(self.details_expander, False, False, 0)
+
+        self.connect("destroy", self._on_destroy)
+
+    @staticmethod
+    def _choice(icon_name: str, heading: str, detail: str) -> Gtk.Button:
+        button = Gtk.Button()
+        button.get_style_context().add_class("choice-card")
+        button.set_relief(Gtk.ReliefStyle.NONE)
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        icon = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.LARGE_TOOLBAR)
+        icon.get_style_context().add_class("choice-icon")
+        row.pack_start(icon, False, False, 0)
+        copy = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        heading_label = Gtk.Label(label=heading, xalign=0)
+        heading_label.get_style_context().add_class("choice-title")
+        detail_label = Gtk.Label(label=detail, xalign=0)
+        detail_label.set_line_wrap(True)
+        detail_label.get_style_context().add_class("choice-detail")
+        copy.pack_start(heading_label, False, False, 0)
+        copy.pack_start(detail_label, False, False, 0)
+        row.pack_start(copy, True, True, 0)
+        button.add(row)
+        return button
+
+    def _append_detail(self, line: str) -> None:
+        buffer = self.details.get_buffer()
+        buffer.insert(buffer.get_end_iter(), f"{line}\n")
+        mark = buffer.create_mark(None, buffer.get_end_iter(), False)
+        self.details.scroll_to_mark(mark, 0.0, True, 0.0, 1.0)
+
+    def _set_running(self, running: bool) -> None:
+        self.suggested_button.set_sensitive(not running)
+        if running:
+            self.spinner.show()
+            self.spinner.start()
+        else:
+            self.spinner.stop()
+            self.spinner.hide()
+
+    def _start_suggested_install(self, _button: Gtk.Button) -> None:
+        if self.install_process is not None:
+            return
+        self.model = ProgressModel()
+        for app in self.catalog.suggested():
+            self.rows[app.key].status.set_text(f"Waiting · {app.source_label}")
+        self.details.get_buffer().set_text("")
+        self.status.set_text("Preparing the suggested applications…")
+        self._set_running(True)
+        threading.Thread(target=self._install_worker, daemon=True).start()
+
+    @staticmethod
+    def _installer_command() -> str:
+        configured = os.environ.get("SPACED_WELCOME_INSTALLER")
+        if configured:
+            return configured
+        installed = Path("/usr/bin/spaced-welcome-install")
+        if installed.is_file():
+            return str(installed)
+        return str(Path(__file__).resolve().parents[2] / "bin" / "spaced-welcome-install")
+
+    def _install_worker(self) -> None:
+        command = [self._installer_command(), "--install", "suggested", "--events"]
+        environment = os.environ.copy()
+        environment["PYTHONUNBUFFERED"] = "1"
+        try:
+            self.install_process = subprocess.Popen(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                env=environment,
+            )
+            assert self.install_process.stdout is not None
+            for raw_line in self.install_process.stdout:
+                line = raw_line.strip()
+                if not line:
+                    continue
+                try:
+                    event = json.loads(line)
+                    if not isinstance(event, dict):
+                        raise ValueError
+                except (json.JSONDecodeError, ValueError):
+                    event = {"event": "detail", "message": line}
+                GLib.idle_add(self._apply_event, event)
+            returncode = self.install_process.wait()
+        except OSError as error:
+            GLib.idle_add(
+                self._apply_event,
+                {"event": "fatal", "message": f"Could not start the installer: {error}"},
+            )
+            returncode = 2
+        finally:
+            self.install_process = None
+        GLib.idle_add(self._install_finished, returncode)
+
+    def _apply_event(self, event: dict[str, Any]) -> bool:
+        old_detail_count = len(self.model.details)
+        self.model.apply(event)
+        for line in self.model.details[old_detail_count:]:
+            self._append_detail(line)
+        app_key = str(event.get("app", ""))
+        if app_key in self.rows and app_key in self.model.rows:
+            self.rows[app_key].status.set_text(self.model.rows[app_key])
+        self.status.set_text(self.model.summary)
+        if event.get("event") in {"app-failure", "fatal"}:
+            self.details_expander.set_expanded(True)
+        return False
+
+    def _install_finished(self, returncode: int) -> bool:
+        self._set_running(False)
+        if returncode != 0 and not self.model.summary.lower().startswith("installed"):
+            self.status.set_text("Some applications failed. Open Details for the exact error.")
+            self.details_expander.set_expanded(True)
+        return False
+
+    def _open_bazaar(self, _button: Gtk.Button) -> None:
+        flatpak = os.environ.get("SPACED_WELCOME_FLATPAK", "/usr/bin/flatpak")
+        check = subprocess.run(
+            [flatpak, "info", "io.github.crhy.SpacedBazaar"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        if check.returncode != 0:
+            message = (
+                "SpacedBazaar is missing from the base system. Run Spaced Update, "
+                "then repair the spaced-bazaar installation."
+            )
+            self.status.set_text(message)
+            self._append_detail(message)
+            self.details_expander.set_expanded(True)
+            return
+        self.status.set_text("Opening the preinstalled SpacedBazaar…")
+        subprocess.Popen(
+            [flatpak, "run", "io.github.crhy.SpacedBazaar"],
+            start_new_session=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+    def _open_nvidia_installer(self, _button: Gtk.Button) -> None:
+        command = os.environ.get("SPACED_WELCOME_NVIDIA_INSTALLER", "spaced-nvidia-installer")
+        try:
+            subprocess.Popen([command], start_new_session=True)
+        except OSError as error:
+            self.status.set_text(f"Could not open NVIDIA setup: {error}")
+
+    def _on_destroy(self, _window: Gtk.Window) -> None:
+        if self.install_process is not None and self.install_process.poll() is None:
+            self.install_process.terminate()
+        Gtk.main_quit()
+
+
+def _state_file() -> Path:
+    config_home = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+    return config_home / "spaced-linux/welcome-shown"
+
+
+def _is_live_session() -> bool:
+    return Path("/run/live/medium").exists() or Path("/lib/live/mount/medium").exists()
+
+
+def _mark_shown() -> bool:
+    state_file = _state_file()
+    state_file.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    state_file.touch(mode=0o600, exist_ok=True)
+    return False
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="spaced-welcome")
+    parser.add_argument("--first-run", action="store_true", help=argparse.SUPPRESS)
+    args = parser.parse_args(argv)
+    if args.first_run and (_is_live_session() or _state_file().exists()):
+        return 0
+    try:
+        window = WelcomeWindow()
+    except CatalogError as error:
+        print(f"spaced-welcome: {error}", file=sys.stderr)
+        return 1
+    window.show_all()
+    window.spinner.hide()
+    if args.first_run:
+        GLib.idle_add(_mark_shown)
+    Gtk.main()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+

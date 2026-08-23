@@ -1,0 +1,36 @@
+name: Test and package
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Install validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes appstream desktop-file-utils dpkg-dev flatpak ostree shellcheck
+      - name: Run behavioral and source checks
+        run: make check
+      - name: Build Debian package
+        run: make deb
+      - name: Inspect package contract
+        run: |
+          test -f "dist/spaced-welcome_$(cat VERSION)_all.deb"
+          dpkg-deb --info "dist/spaced-welcome_$(cat VERSION)_all.deb"
+          dpkg-deb --contents "dist/spaced-welcome_$(cat VERSION)_all.deb"
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: spaced-welcome-deb
+          path: dist/spaced-welcome_*_all.deb
+

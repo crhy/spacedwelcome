@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "apps": [
+    {
+      "key": "spacedbazaar",
+      "name": "SpacedBazaar",
+      "app_id": "io.github.crhy.SpacedBazaar",
+      "branch": "master",
+      "description": "Browse and install applications on Spaced Linux.",
+      "preinstalled": true,
+      "suggested": false,
+      "source": {
+        "type": "github-release",
+        "repository": "crhy/spacedbazaar",
+        "assets": {
+          "x86_64": {"name": "SpacedBazaar-x86_64.flatpak"},
+          "aarch64": {"name": "SpacedBazaar-aarch64.flatpak"}
+        }
+      }
+    },
+    {
+      "key": "voice2text",
+      "name": "Voice2Text AI",
+      "app_id": "io.github.crhy.voice2textai",
+      "branch": "master",
+      "description": "Private on-device speech transcription and AI tools.",
+      "preinstalled": false,
+      "suggested": true,
+      "source": {
+        "type": "github-release",
+        "repository": "crhy/Voice2Text-AI",
+        "assets": {
+          "x86_64": {"name": "Voice2Text-AI.flatpak"}
+        }
+      }
+    },
+    {
+      "key": "cards-with-cats",
+      "name": "Cards with Cats",
+      "app_id": "io.github.crhy.ScumWithCats",
+      "branch": "stable",
+      "description": "A card game created for Spaced Linux.",
+      "preinstalled": false,
+      "suggested": true,
+      "source": {
+        "type": "github-release",
+        "repository": "crhy/ScumWithCats",
+        "assets": {
+          "x86_64": {"template": "ScumWithCats-{version}.flatpak"}
+        }
+      }
+    },
+    {
+      "key": "brutal-chess",
+      "name": "Brutal Chess",
+      "app_id": "io.github.crhy.BrutalChess",
+      "branch": "stable",
+      "description": "A classic 3D chess game packaged for Spaced Linux.",
+      "preinstalled": false,
+      "suggested": true,
+      "source": {
+        "type": "github-release",
+        "repository": "crhy/brutalchess",
+        "assets": {
+          "x86_64": {"template": "BrutalChess-{version}.flatpak"}
+        }
+      }
+    },
+    {
+      "key": "spaced-update",
+      "name": "Spaced Update",
+      "app_id": "org.spacedlinux.SpacedUpdate",
+      "branch": "stable",
+      "description": "Update Spaced Linux and Flatpak applications together.",
+      "preinstalled": false,
+      "suggested": true,
+      "source": {
+        "type": "github-release",
+        "repository": "crhy/spacedupdate",
+        "assets": {
+          "x86_64": {"template": "SpacedUpdate-{version}-x86_64.flatpak"}
+        }
+      }
+    },
+    {
+      "key": "audacious",
+      "name": "Audacious",
+      "app_id": "org.atheme.audacious",
+      "description": "A lightweight music player.",
+      "preinstalled": false,
+      "suggested": true,
+      "source": {"type": "flathub"}
+    },
+    {
+      "key": "brave",
+      "name": "Brave Browser",
+      "app_id": "com.brave.Browser",
+      "description": "A privacy-focused web browser.",
+      "preinstalled": false,
+      "suggested": true,
+      "source": {"type": "flathub"}
+    },
+    {
+      "key": "libreoffice",
+      "name": "LibreOffice",
+      "app_id": "org.libreoffice.LibreOffice",
+      "description": "Writer, Calc, Impress, and the LibreOffice suite.",
+      "preinstalled": false,
+      "suggested": true,
+      "source": {"type": "flathub"}
+    },
+    {
+      "key": "vlc",
+      "name": "VLC",
+      "app_id": "org.videolan.VLC",
+      "description": "A versatile video and audio player.",
+      "preinstalled": false,
+      "suggested": true,
+      "source": {"type": "flathub"}
+    }
+  ]
+}
