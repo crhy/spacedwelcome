@@ -93,7 +93,7 @@ an overly broad host-command permission.
 
 Spaced Linux should install the `spaced-welcome` Debian package and the
 `io.github.crhy.SpacedBazaar` system Flatpak in the live filesystem. Calamares
-then copies both into the installed target, so Bazaar is available before the
+then copies both into the installed target, so SpacedBazaar is available before the
 first-login Welcome window appears.
 
 ## License
