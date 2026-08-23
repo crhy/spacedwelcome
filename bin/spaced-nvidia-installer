@@ -1,3 +1,40 @@
 #!/bin/sh
-# Spaced NVIDIA Installer - launches nvidia-settings on the host
-exec flatpak-spawn --host nvidia-settings "$@"
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Launches the Spaced NVIDIA Driver Installer so the "NVIDIA Drivers"
+# welcome action works with both the native Debian package and the
+# sandboxed Flatpak build.
+#
+# Resolution order:
+#   1. $SPACED_WELCOME_NVIDIA_INSTALLER (explicit override; absolute
+#      path or command)
+#   2. /usr/local/bin/spaced-nvidia-installer (native install; the
+#      Spaced Linux NVIDIA installer tool, which escalates via polkit
+#      when it installs driver packages)
+#   3. flatpak-spawn --host (inside the Flatpak sandbox the /usr/local
+#      tool is invisible; spawn it on the host)
+#   4. spaced-nvidia-installer on $PATH (any other layout)
+if [ -n "${SPACED_WELCOME_NVIDIA_INSTALLER:-}" ]; then
+    if [ -x "$SPACED_WELCOME_NVIDIA_INSTALLER" ] ||
+        command -v -- "$SPACED_WELCOME_NVIDIA_INSTALLER" >/dev/null 2>&1; then
+        exec "$SPACED_WELCOME_NVIDIA_INSTALLER" "$@"
+    fi
+    echo "spaced-welcome: NVIDIA installer override is not usable: $SPACED_WELCOME_NVIDIA_INSTALLER" >&2
+    exit 127
+fi
+
+if [ -x /usr/local/bin/spaced-nvidia-installer ]; then
+    exec /usr/local/bin/spaced-nvidia-installer "$@"
+fi
+
+if command -v flatpak-spawn >/dev/null 2>&1; then
+    exec flatpak-spawn --host spaced-nvidia-installer "$@"
+fi
+
+target=$(command -v spaced-nvidia-installer 2>/dev/null) || true
+if [ -n "$target" ] && [ "$target" != "$0" ]; then
+    exec "$target" "$@"
+fi
+
+echo "spaced-nvidia-installer: no NVIDIA driver installer is available on this system" >&2
+exit 127

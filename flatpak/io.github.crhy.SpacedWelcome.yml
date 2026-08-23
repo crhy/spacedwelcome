@@ -18,30 +18,30 @@ modules:
   build-commands:
   - install -Dm755 bin/spaced-welcome /app/bin/spaced-welcome
   - install -Dm755 bin/spaced-welcome-install /app/bin/spaced-welcome-install
-  - install -Dm755 bin/spaced-welcome /app/share/spacedwelcome/bin/spaced-welcome
-  - install -Dm755 bin/spaced-welcome-install /app/share/spacedwelcome/bin/spaced-welcome-install
-  - mkdir -p /app/share/spacedwelcome/lib
+  - mkdir -p /app/share/spacedwelcome/lib /app/share/spacedwelcome/bin /app/share/spacedwelcome/data
   - cp -r src/spaced_welcome /app/share/spacedwelcome/lib/
   - install -Dm644 data/catalog.json /app/share/spacedwelcome/data/catalog.json
-  - install -Dm755 bin/spaced-nvidia-installer /app/bin/spaced-nvidia-installer
-  - install -Dm755 bin/spaced-nvidia-installer /app/share/spacedwelcome/bin/spaced-nvidia-installer
-  - sed -i '2i export PYTHONPATH=/app/share/spacedwelcome/lib' /app/bin/spaced-welcome
-  - sed -i '2i export PYTHONPATH=/app/share/spacedwelcome/lib' /app/bin/spaced-welcome-install
+  - install -Dm755 bin/spaced-welcome /app/share/spacedwelcome/bin/spaced-welcome
+  - install -Dm755 bin/spaced-welcome-install /app/share/spacedwelcome/bin/spaced-welcome-install
   - install -Dm755 bin/spaced-host-flatpak /app/share/spacedwelcome/bin/spaced-host-flatpak
   - install -Dm755 bin/spaced-host-ostree /app/share/spacedwelcome/bin/spaced-host-ostree
-  - for f in /app/bin/spaced-welcome /app/bin/spaced-welcome-install /app/share/spacedwelcome/bin/spaced-welcome
-    /app/share/spacedwelcome/bin/spaced-welcome-install; do sed -i '3i export SPACED_WELCOME_FLATPAK=/app/share/spacedwelcome/bin/spaced-host-flatpak'
-    "$f"; sed -i '4i export SPACED_WELCOME_OSTREE=/app/share/spacedwelcome/bin/spaced-host-ostree'
-    "$f"; done
-  - sed -i '2i export PYTHONPATH=/app/share/spacedwelcome/lib' /app/share/spacedwelcome/bin/spaced-welcome
-  - sed -i '2i export PYTHONPATH=/app/share/spacedwelcome/lib' /app/share/spacedwelcome/bin/spaced-welcome-install
+  - install -Dm755 bin/spaced-host-nvidia-installer /app/share/spacedwelcome/bin/spaced-host-nvidia-installer
+  - install -Dm755 bin/spaced-nvidia-installer /app/bin/spaced-nvidia-installer
   - install -Dm644 data/spaced-welcome.desktop /app/share/applications/io.github.crhy.SpacedWelcome.desktop
   - install -Dm644 data/io.github.crhy.SpacedWelcome.metainfo.xml -t /app/share/metainfo/
   - install -Dm644 data/icons/hicolor/scalable/apps/spaced-welcome.svg /app/share/icons/hicolor/scalable/apps/io.github.crhy.SpacedWelcome.svg
   - install -Dm644 flatpak/icon-128.png /app/share/icons/hicolor/128x128/apps/io.github.crhy.SpacedWelcome.png
   - install -Dm644 flatpak/icon-64.png /app/share/icons/hicolor/64x64/apps/io.github.crhy.SpacedWelcome.png
-  - install -Dm755 bin/spaced-nvidia-installer /app/bin/spaced-nvidia-installer
-  - install -Dm755 bin/spaced-nvidia-installer /app/share/spacedwelcome/bin/spaced-nvidia-installer
+  - for f in /app/bin/spaced-welcome /app/bin/spaced-welcome-install
+      /app/share/spacedwelcome/bin/spaced-welcome
+      /app/share/spacedwelcome/bin/spaced-welcome-install; do
+      sed -i '2i export PYTHONPATH=/app/share/spacedwelcome/lib' "$f";
+      sed -i '3i export SPACED_WELCOME_FLATPAK=/app/share/spacedwelcome/bin/spaced-host-flatpak' "$f";
+      sed -i '4i export SPACED_WELCOME_OSTREE=/app/share/spacedwelcome/bin/spaced-host-ostree' "$f";
+    done
+  - for f in /app/bin/spaced-welcome /app/share/spacedwelcome/bin/spaced-welcome; do
+      sed -i '5i export SPACED_WELCOME_NVIDIA_INSTALLER=/app/share/spacedwelcome/bin/spaced-host-nvidia-installer' "$f";
+    done
   sources:
   - type: dir
     path: ..

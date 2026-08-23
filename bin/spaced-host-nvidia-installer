@@ -1,0 +1,9 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Spawns the host Spaced NVIDIA Driver Installer. Inside the Welcome
+# Flatpak sandbox /usr/local is not visible, so the real tool --
+# /usr/local/bin/spaced-nvidia-installer, which runs the GTK installer
+# and escalates via polkit when needed -- must be started on the host
+# with flatpak-spawn --host.
+exec flatpak-spawn --host /usr/local/bin/spaced-nvidia-installer "$@"

@@ -64,7 +64,7 @@ make deb
 PYTHONPATH=src tools/validate-live-releases.py
 ```
 
-The package artifact is exactly `dist/spaced-welcome_1.0.0_all.deb`.
+The package artifact is exactly `dist/spaced-welcome_0.1.0_all.deb`.
 The optional live-release validator downloads and inspects every current CRHY
 bundle without installing it; Voice2Text AI is currently about 520 MB.
 

@@ -5,7 +5,11 @@ __pycache__/
 dist/*
 !dist/.gitkeep
 
-
-# Flatpak build outputs
+# Build outputs
 sw-repo/
 bz-repo/
+.flatpak-builder/
+*.sha256
+
+# Flutter spike leftovers (repo has pivoted to the Python GTK app)
+build/

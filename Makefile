@@ -14,7 +14,7 @@ test:
 check: test
 	python3 -m compileall -q src tests
 	python3 -m json.tool data/catalog.json >/dev/null
-	bash -n bin/spaced-welcome bin/spaced-welcome-install packaging/build-deb.sh packaging/debian/postinst packaging/debian/prerm
+	bash -n bin/* packaging/build-deb.sh packaging/debian/postinst packaging/debian/prerm
 	desktop-file-validate data/spaced-welcome.desktop data/spaced-welcome-autostart.desktop
 	@if command -v appstreamcli >/dev/null 2>&1; then appstreamcli validate --no-net data/io.github.crhy.SpacedWelcome.metainfo.xml; fi
 	@if command -v shellcheck >/dev/null 2>&1; then shellcheck bin/* packaging/build-deb.sh packaging/debian/postinst packaging/debian/prerm; fi
@@ -24,3 +24,5 @@ deb:
 
 clean:
 	rm -f -- "dist/spaced-welcome_$(VERSION)_all.deb" dist/*.sha256
+	rm -rf -- .flatpak-builder
+	find . -name __pycache__ -type d -prune -exec rm -rf {} +
