@@ -5,6 +5,8 @@ Linux. It opens the SpacedBazaar already installed in the base system and can
 install a curated set of user Flatpaks from Flathub and verified CRHY GitHub
 releases.
 
+<img width="720" height="507" alt="WelcomeScreenshot" src="https://github.com/user-attachments/assets/363d1e13-ec5b-4a79-9cfa-d4a257f93108" />
+
 The UI always names the application and source currently being installed. Its
 **Details** pane streams resolver, download, verification, Flatpak, retry, and
 failure output while work is in progress.
