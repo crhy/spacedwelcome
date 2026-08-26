@@ -176,7 +176,7 @@ class InstallerCliTests(unittest.TestCase):
                 pathlib.Path(os.environ['FAKE_MARKER']).touch()
                 raise SystemExit(0)
             if command == 'info':
-                if os.environ.get('FAKE_PREINSTALLED') == '1' or pathlib.Path(os.environ['FAKE_MARKER']).exists():
+                if os.environ.get('FAKE_ALREADY_INSTALLED') == '1' or os.environ.get('FAKE_PREINSTALLED') == '1' or pathlib.Path(os.environ['FAKE_MARKER']).exists():
                     raise SystemExit(0)
                 raise SystemExit(1)
             raise SystemExit(0)
@@ -294,6 +294,25 @@ class InstallerCliTests(unittest.TestCase):
         self.assertTrue(any(event["event"] == "app-skipped" for event in events))
         commands = self.commands()
         self.assertEqual([command[0] for command in commands], ["info"])
+
+    def test_already_installed_app_is_skipped_without_download(self):
+        result = self.run_cli(
+            "--install",
+            "test-app",
+            "--events",
+            extra_env={"FAKE_ALREADY_INSTALLED": "1"},
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        events = self.events(result)
+        self.assertTrue(any(event["event"] == "app-skipped" for event in events))
+        self.assertFalse(any(event["event"] == "app-failure" for event in events))
+        self.assertTrue(
+            any(event["event"] == "summary" and event.get("success") for event in events)
+        )
+        commands = self.commands()
+        self.assertEqual([command[0] for command in commands], ["info"])
+        self.assertFalse(self.marker.exists())
+        self.assertFalse((self.work / "cache" / "test-app").exists())
 
 
 if __name__ == "__main__":

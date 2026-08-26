@@ -528,6 +528,14 @@ class Installer:
                 )
                 return True
 
+            if self._flatpak_info(app):
+                self.emit(
+                    "app-skipped",
+                    app,
+                    message=f"{app.name} is already installed",
+                )
+                return True
+
             self.ensure_flathub(app)
             bundle: Path | None = None
             if app.source_type == "github-release":
