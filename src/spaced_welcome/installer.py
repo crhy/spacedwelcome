@@ -371,28 +371,37 @@ class Installer:
     def inspect_bundle(self, app: App, bundle: Path) -> str:
         if bundle.suffix != ".flatpak":
             raise InstallError(f"Refusing bundle without a .flatpak suffix: {bundle.name}")
-        with tempfile.TemporaryDirectory(prefix="spaced-welcome-repo-") as directory:
-            repo = Path(directory) / "repo"
-            repo.mkdir(mode=0o700)
-            init = self._run_capture(
-                [self.ostree, f"--repo={repo}", "init", "--mode=archive-z2"], app=app
-            )
-            if init.returncode != 0:
-                raise InstallError("Could not create the temporary Flatpak inspection repository")
-            imported = self._run_capture(
-                [
-                    self.flatpak,
-                    "build-import-bundle",
-                    "--no-update-summary",
-                    str(repo),
-                    str(bundle),
-                ],
-                timeout=300,
-                app=app,
-            )
-        if imported.returncode != 0:
-            raise InstallError(f"{bundle.name} is not a valid Flatpak bundle")
-        refs = sorted(set(IMPORT_RE.findall(imported.output)))
+        # The import repository must live where the host can see it. Inside the
+        # Spaced Welcome Flatpak, ostree and flatpak execute on the host via
+        # flatpak-spawn, so the sandbox-private /tmp is not readable by them.
+        # The xdg-cache based cache directory is shared with the host.
+        repo = self.cache_dir / "import" / app.key
+        if repo.exists():
+            shutil.rmtree(repo)
+        repo.parent.mkdir(parents=True, exist_ok=True)
+        repo.mkdir(mode=0o700)
+        init = self._run_capture(
+            [self.ostree, f"--repo={repo}", "init", "--mode=archive-z2"], app=app
+        )
+        if init.returncode != 0:
+            raise InstallError("Could not create the temporary Flatpak inspection repository")
+        imported = self._run_capture(
+            [
+                self.flatpak,
+                "build-import-bundle",
+                "--no-update-summary",
+                str(repo),
+                str(bundle),
+            ],
+            timeout=300,
+            app=app,
+        )
+        try:
+            if imported.returncode != 0:
+                raise InstallError(f"{bundle.name} is not a valid Flatpak bundle")
+            refs = sorted(set(IMPORT_RE.findall(imported.output)))
+        finally:
+            shutil.rmtree(repo, ignore_errors=True)
         if len(refs) != 1:
             raise InstallError(f"Could not determine one Flatpak ref inside {bundle.name}")
         expected = f"app/{app.app_id}/{self.arch}/{app.branch}"

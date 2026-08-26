@@ -48,6 +48,7 @@ class InstallerCliTests(unittest.TestCase):
                 "FAKE_RELEASE": str(self.release),
                 "FAKE_BUNDLE": str(self.bundle),
                 "FAKE_LOG": str(self.log),
+                "FAKE_OSTREE_INIT_LOG": str(self.work / "ostree-init.jsonl"),
                 "FAKE_COUNTER": str(self.counter),
                 "FAKE_MARKER": str(self.marker),
                 "FAKE_REF": "app/io.github.crhy.TestApp/x86_64/master",
@@ -127,7 +128,18 @@ class InstallerCliTests(unittest.TestCase):
             self.fake_bin / "ostree",
             r"""
             #!/usr/bin/python3
-            import sys
+            import os, pathlib, sys
+            args = sys.argv[1:]
+            if len(args) >= 2 and args[0].startswith('--repo=') and args[1] == 'init':
+                repository = pathlib.Path(args[0].split('=', 1)[1])
+                log = os.environ['FAKE_OSTREE_INIT_LOG']
+                with pathlib.Path(log).open('a', encoding='utf-8') as target:
+                    target.write(repository.as_posix() + '\n')
+                repository.mkdir(parents=True, exist_ok=True)
+                (repository / 'objects').mkdir(exist_ok=True)
+                (repository / 'staged').mkdir(exist_ok=True)
+                (repository / 'staged' / 'import').mkdir(exist_ok=True)
+                (repository / 'tmp').mkdir(exist_ok=True)
             raise SystemExit(0)
             """,
         )
@@ -224,6 +236,19 @@ class InstallerCliTests(unittest.TestCase):
         self.assertEqual(len(failures), 1)
         self.assertIn("SHA-256 verification failed", failures[0]["message"])
         self.assertFalse(any(command[0] == "install" for command in self.commands()))
+
+    def test_inspection_repository_lives_in_host_visible_cache(self):
+        result = self.run_cli("--install", "test-app", "--events")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        init_log = self.work / "ostree-init.jsonl"
+        lines = [line for line in init_log.read_text().splitlines() if line]
+        self.assertEqual(len(lines), 1)
+        repository = Path(lines[0])
+        # Inside the Spaced Welcome Flatpak, ostree and flatpak run on the
+        # host, so the import repo must live under the shared xdg-cache
+        # directory, not the sandbox-private temp dir.
+        cache = Path(self.environment["SPACED_WELCOME_CACHE_DIR"])
+        self.assertTrue(repository.is_relative_to(cache), repository)
 
     def test_flatpak_ref_mismatch_is_rejected_before_install(self):
         result = self.run_cli(
