@@ -15,6 +15,7 @@ DEFAULT_CATALOG = Path("/usr/share/spaced-welcome/catalog.json")
 SOURCE_ROOT_CATALOG = Path(__file__).resolve().parents[2] / "data" / "catalog.json"
 APP_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]+$")
 KEY_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+BRANCH_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
 class CatalogError(ValueError):
@@ -30,7 +31,7 @@ class App:
     source_type: str
     suggested: bool
     preinstalled: bool
-    branch: str = "master"
+    branch: str
 
     @property
     def source_label(self) -> str:
@@ -83,6 +84,7 @@ def load_catalog(path: str | os.PathLike[str] | None = None) -> Catalog:
         name = raw.get("name", "")
         source = raw["source"]
         source_type = source.get("type")
+        branch = raw.get("branch")
         if not KEY_RE.fullmatch(key):
             raise CatalogError(f"Invalid application key: {key!r}")
         if key in seen_keys:
@@ -97,6 +99,8 @@ def load_catalog(path: str | os.PathLike[str] | None = None) -> Catalog:
             raise CatalogError(f"Unsupported source for {name}: {source_type!r}")
         if set(source) != {"type"}:
             raise CatalogError(f"{name} source may only define its type")
+        if not isinstance(branch, str) or not BRANCH_RE.fullmatch(branch):
+            raise CatalogError(f"{name} needs an explicit valid Flatpak branch")
 
         app = App(
             key=key,
@@ -106,7 +110,7 @@ def load_catalog(path: str | os.PathLike[str] | None = None) -> Catalog:
             source_type=source_type,
             suggested=bool(raw.get("suggested", False)),
             preinstalled=bool(raw.get("preinstalled", False)),
-            branch=str(raw.get("branch", "master")),
+            branch=branch,
         )
         if app.preinstalled and app.suggested:
             raise CatalogError(f"Preinstalled application {name} cannot be suggested")

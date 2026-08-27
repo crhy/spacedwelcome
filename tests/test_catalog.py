@@ -22,13 +22,30 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual({key: catalog.get(key).app_id for key in expected}, expected)
         for key in expected:
             self.assertEqual(catalog.get(key).source_type, "spaced-github")
-        self.assertTrue(catalog.get("spacedbazaar").preinstalled)
-        self.assertFalse(catalog.get("spacedbazaar").suggested)
-        self.assertNotIn("spacedbazaar", [app.key for app in catalog.suggested()])
+        self.assertFalse(catalog.get("spacedbazaar").preinstalled)
+        self.assertTrue(catalog.get("spacedbazaar").suggested)
         self.assertEqual(
             [app.key for app in catalog.suggested() if app.source_type == "spaced-github"],
-            ["voice2text", "cards-with-cats", "brutal-chess", "spaced-update"],
+            ["spacedbazaar", "voice2text", "cards-with-cats", "brutal-chess", "spaced-update"],
         )
+        for key in ("audacious", "brave", "libreoffice", "vlc"):
+            self.assertEqual(catalog.get(key).branch, "stable")
+
+    def test_catalog_requires_an_explicit_branch(self):
+        payload = {
+            "schema_version": 1,
+            "apps": [{
+                "key": "missing-branch",
+                "name": "Missing Branch",
+                "app_id": "io.example.MissingBranch",
+                "source": {"type": "flathub"},
+            }],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "catalog.json"
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            with self.assertRaisesRegex(CatalogError, "explicit valid Flatpak branch"):
+                load_catalog(path)
 
     def test_catalog_rejects_source_coordinates_outside_central_policy(self):
         payload = {

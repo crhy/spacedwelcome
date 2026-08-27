@@ -115,7 +115,7 @@ class WelcomeWindow(Gtk.Window):
         title.get_style_context().add_class("hero-title")
         surface.pack_start(title, False, False, 0)
         subtitle = Gtk.Label(
-            label="SpacedBazaar is ready now. Add the suggested applications whenever you like."
+            label="Keep the base system lean. Add SpacedBazaar and suggested apps whenever you like."
         )
         subtitle.get_style_context().add_class("hero-subtitle")
         subtitle.set_margin_top(4)
@@ -142,7 +142,7 @@ class WelcomeWindow(Gtk.Window):
         self.suggested_button.connect("clicked", self._start_suggested_install)
         actions.pack_start(self.suggested_button, True, True, 0)
         self.bazaar_button = self._choice(
-            "system-software-update", "Open SpacedBazaar", "Already installed with Spaced Linux"
+            "system-software-update", "Open SpacedBazaar", "Available after installing suggested apps"
         )
         self.bazaar_button.connect("clicked", self._open_bazaar)
         actions.pack_start(self.bazaar_button, True, True, 0)
@@ -416,15 +416,15 @@ class WelcomeWindow(Gtk.Window):
             return
         if check.returncode != 0:
             message = (
-                "SpacedBazaar is missing from the base system. Run Spaced Update, "
-                "then repair the spaced-bazaar installation."
+                "SpacedBazaar is not installed yet. Choose Install Suggested Apps first, "
+                "then this link will open the app page automatically."
             )
             self.status.set_text(message)
             self._append_detail(message)
             self.details_expander.set_expanded(True)
             return
         if suggestion is None:
-            message = "Opening the preinstalled SpacedBazaar…"
+            message = "Opening SpacedBazaar…"
         else:
             message = f"Opening {suggestion.app_name} in SpacedBazaar…"
         self.status.set_text(message)

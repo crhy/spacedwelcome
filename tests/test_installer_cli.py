@@ -156,8 +156,11 @@ class InstallerCliTests(unittest.TestCase):
             "https://crhy.github.io/spacedbazaar/spaced-github.flatpakrepo",
         )
 
-    def test_flathub_app_uses_flathub(self):
+    def test_flathub_app_uses_stable_branch(self):
         self._write_catalog(source="flathub")
+        payload = json.loads(self.catalog.read_text(encoding="utf-8"))
+        payload["apps"][0]["branch"] = "stable"
+        self.catalog.write_text(json.dumps(payload), encoding="utf-8")
         result = self.run_cli(
             "--install",
             "test-app",
@@ -166,7 +169,7 @@ class InstallerCliTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         install = [command for command in self.commands() if command[0] == "install"][0]
-        self.assertEqual(install[-2:], ["flathub", "io.github.crhy.TestApp//master"])
+        self.assertEqual(install[-2:], ["flathub", "io.github.crhy.TestApp//stable"])
 
     def test_existing_remote_with_unexpected_url_is_rejected(self):
         result = self.run_cli(

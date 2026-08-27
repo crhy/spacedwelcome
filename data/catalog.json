@@ -7,8 +7,8 @@
       "app_id": "io.github.crhy.SpacedBazaar",
       "branch": "master",
       "description": "Browse and install applications on Spaced Linux.",
-      "preinstalled": true,
-      "suggested": false,
+      "preinstalled": false,
+      "suggested": true,
       "source": {
         "type": "spaced-github"
       }
@@ -65,6 +65,7 @@
       "key": "audacious",
       "name": "Audacious",
       "app_id": "org.atheme.audacious",
+      "branch": "stable",
       "description": "A lightweight music player.",
       "preinstalled": false,
       "suggested": true,
@@ -74,6 +75,7 @@
       "key": "brave",
       "name": "Brave Browser",
       "app_id": "com.brave.Browser",
+      "branch": "stable",
       "description": "A privacy-focused web browser.",
       "preinstalled": false,
       "suggested": true,
@@ -83,6 +85,7 @@
       "key": "libreoffice",
       "name": "LibreOffice",
       "app_id": "org.libreoffice.LibreOffice",
+      "branch": "stable",
       "description": "Writer, Calc, Impress, and the LibreOffice suite.",
       "preinstalled": false,
       "suggested": true,
@@ -92,6 +95,7 @@
       "key": "vlc",
       "name": "VLC",
       "app_id": "org.videolan.VLC",
+      "branch": "stable",
       "description": "A versatile video and audio player.",
       "preinstalled": false,
       "suggested": true,
