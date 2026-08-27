@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 
 from spaced_welcome.help import (
     BAZAAR_APP_ID,
@@ -12,6 +13,17 @@ from spaced_welcome.help import (
 
 
 class HelpSuggestionsTests(unittest.TestCase):
+    def test_compiz_quick_start_and_system_safety_are_visible(self):
+        source = (Path(__file__).parents[1] / "src/spaced_welcome/ui.py").read_text()
+        for text in (
+            "Ctrl+Alt+left-drag",
+            "Shift+Super+mouse wheel",
+            "Shift+Super+C",
+            "Fresh install",
+            "changing or removing system files can break it",
+        ):
+            self.assertIn(text, source)
+
     def test_expected_task_links_open_exact_bazaar_appstream_pages(self):
         expected = {
             "Edit video": "appstream://org.kde.kdenlive",

@@ -17,6 +17,11 @@
   <developer id="io.github.crhy"><name>Spaced Linux Team</name></developer>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="0.1.6" date="2026-08-27">
+      <description>
+        <p>Adds a Compiz desktop-effects quick start and clear first-snapshot and system-customization safety guidance.</p>
+      </description>
+    </release>
     <release version="0.1.5" date="2026-08-27">
       <description>
         <p>Uses the renamed Cards With Cats application name and Flatpak ID.</p>

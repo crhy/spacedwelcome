@@ -58,7 +58,7 @@ make check
 make deb
 ```
 
-The package artifact is exactly `dist/spaced-welcome_0.1.5_all.deb`.
+The package artifact is exactly `dist/spaced-welcome_0.1.6_all.deb`.
 
 The behavioral test harness can inject commands and paths without weakening
 production validation:

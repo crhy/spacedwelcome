@@ -236,6 +236,35 @@ class WelcomeWindow(Gtk.Window):
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         content.set_border_width(4)
 
+        desktop_heading = Gtk.Label(label="Desktop quick start", xalign=0)
+        desktop_heading.get_style_context().add_class("choice-title")
+        content.pack_start(desktop_heading, False, False, 0)
+        desktop_help = Gtk.Label(
+            label=(
+                "Rotate the desktop cube with Ctrl+Alt+left-drag. Zoom with "
+                "Shift+Super+mouse wheel (or Shift+Super+Up/Down). Capture an "
+                "area with Super+left-drag. Draw with fire using "
+                "Shift+Super+left-drag, then clear it with Shift+Super+C."
+            ),
+            xalign=0,
+        )
+        desktop_help.set_line_wrap(True)
+        desktop_help.get_style_context().add_class("choice-detail")
+        content.pack_start(desktop_help, False, False, 0)
+
+        safety = Gtk.Label(
+            label=(
+                "Spaced Linux creates a Timeshift snapshot named “Fresh install” "
+                "after the first installed-system boot. The system is fully "
+                "configurable, but changing or removing system files can break it."
+            ),
+            xalign=0,
+        )
+        safety.set_line_wrap(True)
+        safety.set_margin_bottom(10)
+        safety.get_style_context().add_class("choice-detail")
+        content.pack_start(safety, False, False, 0)
+
         heading = Gtk.Label(label="What would you like to do?", xalign=0)
         heading.get_style_context().add_class("choice-title")
         content.pack_start(heading, False, False, 0)
