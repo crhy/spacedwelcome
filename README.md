@@ -25,7 +25,7 @@ verified CRHY applications:
 | --- | --- | --- |
 | SpacedBazaar | `io.github.crhy.SpacedBazaar` | Preinstalled system Flatpak |
 | Voice2Text AI | `io.github.crhy.voice2textai` | Signed `spaced-github` remote |
-| Scum With Cats | `io.github.crhy.ScumWithCats` | Signed `spaced-github` remote |
+| Cards With Cats | `io.github.crhy.CardsWithCats` | Signed `spaced-github` remote |
 | Brutal Chess | `io.github.crhy.BrutalChess` | Signed `spaced-github` remote |
 | Spaced Update | `org.spacedlinux.SpacedUpdate` | Signed `spaced-github` remote |
 
@@ -58,7 +58,7 @@ make check
 make deb
 ```
 
-The package artifact is exactly `dist/spaced-welcome_0.1.4_all.deb`.
+The package artifact is exactly `dist/spaced-welcome_0.1.5_all.deb`.
 
 The behavioral test harness can inject commands and paths without weakening
 production validation:

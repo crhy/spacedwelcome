@@ -27,9 +27,9 @@
     },
     {
       "key": "cards-with-cats",
-      "name": "Scum With Cats",
-      "app_id": "io.github.crhy.ScumWithCats",
-      "branch": "stable",
+      "name": "Cards With Cats",
+      "app_id": "io.github.crhy.CardsWithCats",
+      "branch": "master",
       "description": "A card game created for Spaced Linux.",
       "preinstalled": false,
       "suggested": true,

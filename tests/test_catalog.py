@@ -15,7 +15,7 @@ class CatalogTests(unittest.TestCase):
         expected = {
             "spacedbazaar": "io.github.crhy.SpacedBazaar",
             "voice2text": "io.github.crhy.voice2textai",
-            "cards-with-cats": "io.github.crhy.ScumWithCats",
+            "cards-with-cats": "io.github.crhy.CardsWithCats",
             "brutal-chess": "io.github.crhy.BrutalChess",
             "spaced-update": "org.spacedlinux.SpacedUpdate",
         }

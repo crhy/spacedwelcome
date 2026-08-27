@@ -26,18 +26,18 @@ class ProgressModelTests(unittest.TestCase):
             {
                 "event": "app-start",
                 "app": "cards-with-cats",
-                "name": "Scum With Cats",
+                "name": "Cards With Cats",
                 "source": "Spaced GitHub",
-                "message": "Installing Scum With Cats from Spaced GitHub",
+                "message": "Installing Cards With Cats from Spaced GitHub",
             }
         )
         self.assertEqual(
             model.rows["cards-with-cats"],
-            "Installing Scum With Cats from Spaced GitHub…",
+            "Installing Cards With Cats from Spaced GitHub…",
         )
         self.assertIn("LibreOffice: Installing LibreOffice from Flathub", model.details)
         self.assertIn(
-            "Scum With Cats: Installing Scum With Cats from Spaced GitHub",
+            "Cards With Cats: Installing Cards With Cats from Spaced GitHub",
             model.details,
         )
 
