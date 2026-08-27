@@ -9,7 +9,7 @@
     <p>
       Spaced Linux Welcome opens on the first installed-system login, launches
       the preinstalled SpacedBazaar, and installs suggested Flatpaks from
-      Flathub and verified CRHY GitHub releases.
+      Flathub and the signed Spaced GitHub application repository.
     </p>
   </description>
   <launchable type="desktop-id">io.github.crhy.SpacedWelcome.desktop</launchable>
@@ -17,6 +17,11 @@
   <developer id="io.github.crhy"><name>Spaced Linux Team</name></developer>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="0.1.4" date="2026-08-27">
+      <description>
+        <p>Installs first-party applications by ID from the signed Spaced GitHub repository, adds a task-oriented Help &amp; Apps page with direct SpacedBazaar links, adds version and homepage details, and fixes the native application icon.</p>
+      </description>
+    </release>
     <release version="0.1.3" date="2026-08-26"/>
     <release version="0.1.2" date="2026-08-26"/>
     <release version="0.1.1" date="2026-08-26"/>

@@ -4,9 +4,8 @@ Version=1.0
 Name=Spaced Linux Welcome
 Comment=Choose applications for your new Spaced Linux system
 Exec=spaced-welcome --first-run
-Icon=spaced-welcome
+Icon=io.github.crhy.SpacedWelcome
 Terminal=false
 OnlyShowIn=MATE;
 NoDisplay=true
 X-MATE-Autostart-Delay=8
-

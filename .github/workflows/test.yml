@@ -34,3 +34,31 @@ jobs:
           name: spaced-welcome-deb
           path: dist/spaced-welcome_*_all.deb
 
+  flatpak:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
+      options: --privileged
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Build Flatpak repository
+        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          manifest-path: flatpak/io.github.crhy.SpacedWelcome.yml
+          branch: master
+          repo-dir: spaced-welcome-repo
+          build-bundle: false
+          upload-artifact: false
+          cache-key: flatpak-builder-${{ github.sha }}
+      - name: Verify exported metadata and icon
+        shell: bash
+        run: |
+          set -euo pipefail
+          probe=$(mktemp -d)
+          checkout="$probe/checkout"
+          ref=app/io.github.crhy.SpacedWelcome/x86_64/master
+          ostree --repo=spaced-welcome-repo refs | grep -Fx "$ref"
+          ostree --repo=spaced-welcome-repo checkout --user-mode "$ref" "$checkout"
+          test -f "$checkout/export/share/metainfo/io.github.crhy.SpacedWelcome.metainfo.xml"
+          test -f "$checkout/export/share/icons/hicolor/scalable/apps/io.github.crhy.SpacedWelcome.svg"

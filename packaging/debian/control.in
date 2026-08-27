@@ -4,11 +4,10 @@ Section: x11
 Priority: optional
 Architecture: all
 Maintainer: Spaced Linux Team <noreply@spacedlinux.com>
-Depends: ca-certificates, curl, flatpak, gir1.2-gtk-3.0, ostree, python3 (>= 3.11), python3-gi, xdg-utils
+Depends: ca-certificates, flatpak, gir1.2-gtk-3.0, python3 (>= 3.11), python3-gi, xdg-utils
 Recommends: spaced-meta
 Homepage: https://github.com/crhy/spacedwelcome
 Description: first-run application installer for Spaced Linux
  Shows a source-aware application list on first login, opens the preinstalled
- SpacedBazaar, and installs curated Flatpaks from Flathub or verified CRHY
- GitHub release bundles.
-
+ SpacedBazaar, and installs curated Flatpaks from Flathub and the signed
+ Spaced GitHub Flatpak repository.

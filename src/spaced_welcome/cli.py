@@ -15,11 +15,10 @@ from .installer import InstallError, Installer
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="spaced-welcome-install",
-        description="List, resolve, and install Spaced Linux application suggestions.",
+        description="List and install Spaced Linux application suggestions.",
     )
     actions = parser.add_mutually_exclusive_group(required=True)
     actions.add_argument("--list", action="store_true", help="list catalog applications")
-    actions.add_argument("--resolve", metavar="KEY", help="resolve a GitHub app release")
     actions.add_argument(
         "--install",
         metavar="SELECTION",
@@ -44,7 +43,6 @@ def _list(catalog: Catalog, as_json: bool) -> int:
             "source": app.source_label,
             "suggested": app.suggested,
             "preinstalled": app.preinstalled,
-            "architectures": sorted((app.assets or {}).keys()),
         }
         for app in catalog.apps
     ]
@@ -92,12 +90,6 @@ def main(argv: list[str] | None = None) -> int:
         catalog = load_catalog(args.catalog)
         if args.list:
             return _list(catalog, args.json)
-
-        if args.resolve:
-            installer = Installer(catalog)
-            resolved = installer.resolve(catalog.get(args.resolve))
-            print(json.dumps(resolved.to_dict(), indent=2, sort_keys=True))
-            return 0
 
         installer = Installer(catalog, callback=_event_writer(args.events))
         selected = _selection(catalog, args.install)

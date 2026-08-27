@@ -17,7 +17,9 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk  # noqa: E402
 
+from .about import HOMEPAGE_LABEL, HOMEPAGE_URL, display_version
 from .catalog import App, CatalogError, load_catalog
+from .help import BAZAAR_APP_ID, SUGGESTIONS, AppSuggestion, bazaar_command
 from .progress import ProgressModel
 
 
@@ -46,6 +48,13 @@ window.spaced-welcome, window.spaced-welcome .app-surface {
 .app-name { font-weight: 700; color: #f4f4f4; }
 .app-status { font-size: 11px; color: #c6c9cf; }
 .status { font-size: 12px; color: #c6c9cf; }
+.help-row {
+  background-color: #1f2329;
+  border: 1px solid #30343b;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.help-goal { font-size: 14px; font-weight: 700; color: #f4f4f4; }
 textview, textview text { background-color: #111316; color: #d9dce2; }
 """
 
@@ -71,7 +80,7 @@ class AppRow(Gtk.Box):
         source.set_width_chars(8)
         self.pack_start(source, False, False, 0)
 
-        self.status = Gtk.Label(label=f"Ready · {app.source_label}", xalign=0)
+        self.status = Gtk.Label(label="Ready", xalign=0)
         self.status.set_width_chars(34)
         self.status.set_line_wrap(True)
         self.status.get_style_context().add_class("app-status")
@@ -113,9 +122,22 @@ class WelcomeWindow(Gtk.Window):
         subtitle.set_margin_bottom(18)
         surface.pack_start(subtitle, False, False, 0)
 
+        self.pages = Gtk.Stack()
+        self.pages.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT)
+        self.pages.set_transition_duration(220)
+        switcher = Gtk.StackSwitcher()
+        switcher.set_stack(self.pages)
+        switcher.set_halign(Gtk.Align.CENTER)
+        switcher.set_margin_bottom(14)
+        surface.pack_start(switcher, False, False, 0)
+        surface.pack_start(self.pages, True, True, 0)
+
+        setup_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self.pages.add_titled(setup_page, "setup", "Set Up")
+
         actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         self.suggested_button = self._choice(
-            "system-software-install", "Install Suggested Apps", "Flathub and verified GitHub releases"
+            "system-software-install", "Install Suggested Apps", "Flathub and signed Spaced GitHub apps"
         )
         self.suggested_button.connect("clicked", self._start_suggested_install)
         actions.pack_start(self.suggested_button, True, True, 0)
@@ -129,13 +151,13 @@ class WelcomeWindow(Gtk.Window):
         )
         self.nvidia_button.connect("clicked", self._open_nvidia_installer)
         actions.pack_start(self.nvidia_button, True, True, 0)
-        surface.pack_start(actions, False, False, 0)
+        setup_page.pack_start(actions, False, False, 0)
 
         apps_label = Gtk.Label(label="Suggested applications", xalign=0)
         apps_label.get_style_context().add_class("choice-title")
         apps_label.set_margin_top(18)
         apps_label.set_margin_bottom(6)
-        surface.pack_start(apps_label, False, False, 0)
+        setup_page.pack_start(apps_label, False, False, 0)
 
         app_scroll = Gtk.ScrolledWindow()
         app_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
@@ -147,7 +169,7 @@ class WelcomeWindow(Gtk.Window):
             self.rows[app.key] = row
             app_box.pack_start(row, False, False, 0)
         app_scroll.add(app_box)
-        surface.pack_start(app_scroll, True, True, 0)
+        setup_page.pack_start(app_scroll, True, True, 0)
 
         status_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         status_box.set_halign(Gtk.Align.CENTER)
@@ -158,6 +180,16 @@ class WelcomeWindow(Gtk.Window):
         self.status.get_style_context().add_class("status")
         status_box.pack_start(self.status, False, False, 0)
         surface.pack_start(status_box, False, False, 0)
+
+        about_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        about_box.set_halign(Gtk.Align.CENTER)
+        about_box.set_margin_top(10)
+        self.version_label = Gtk.Label(label=f"Version {display_version()}")
+        self.version_label.get_style_context().add_class("status")
+        about_box.pack_start(self.version_label, False, False, 0)
+        self.homepage_link = Gtk.LinkButton(uri=HOMEPAGE_URL, label=HOMEPAGE_LABEL)
+        about_box.pack_start(self.homepage_link, False, False, 0)
+        setup_page.pack_start(about_box, False, False, 0)
 
         self.details_expander = Gtk.Expander(label="Details")
         self.details_expander.set_margin_top(8)
@@ -171,7 +203,9 @@ class WelcomeWindow(Gtk.Window):
         self.details.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
         detail_scroll.add(self.details)
         self.details_expander.add(detail_scroll)
-        surface.pack_start(self.details_expander, False, False, 0)
+        setup_page.pack_start(self.details_expander, False, False, 0)
+
+        self.pages.add_titled(self._build_help_page(), "help", "Help & Apps")
 
         self.connect("destroy", self._on_destroy)
 
@@ -196,6 +230,49 @@ class WelcomeWindow(Gtk.Window):
         button.add(row)
         return button
 
+    def _build_help_page(self) -> Gtk.Widget:
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        content.set_border_width(4)
+
+        heading = Gtk.Label(label="What would you like to do?", xalign=0)
+        heading.get_style_context().add_class("choice-title")
+        content.pack_start(heading, False, False, 0)
+        introduction = Gtk.Label(
+            label=(
+                "Choose an activity to open the recommended app directly in "
+                "SpacedBazaar. Nothing is installed until you confirm it there."
+            ),
+            xalign=0,
+        )
+        introduction.set_line_wrap(True)
+        introduction.set_margin_bottom(6)
+        introduction.get_style_context().add_class("choice-detail")
+        content.pack_start(introduction, False, False, 0)
+
+        for suggestion in SUGGESTIONS:
+            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+            row.get_style_context().add_class("help-row")
+            copy = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+            goal = Gtk.Label(label=suggestion.goal, xalign=0)
+            goal.get_style_context().add_class("help-goal")
+            detail = Gtk.Label(
+                label=f"{suggestion.app_name} · {suggestion.description}", xalign=0
+            )
+            detail.set_line_wrap(True)
+            detail.get_style_context().add_class("choice-detail")
+            copy.pack_start(goal, False, False, 0)
+            copy.pack_start(detail, False, False, 0)
+            row.pack_start(copy, True, True, 0)
+            open_button = Gtk.Button(label=f"Open {suggestion.app_name}")
+            open_button.connect("clicked", self._open_suggestion, suggestion)
+            row.pack_start(open_button, False, False, 0)
+            content.pack_start(row, False, False, 0)
+
+        scroll.add(content)
+        return scroll
+
     def _append_detail(self, line: str) -> None:
         buffer = self.details.get_buffer()
         buffer.insert(buffer.get_end_iter(), f"{line}\n")
@@ -216,7 +293,7 @@ class WelcomeWindow(Gtk.Window):
             return
         self.model = ProgressModel()
         for app in self.catalog.suggested():
-            self.rows[app.key].status.set_text(f"Waiting · {app.source_label}")
+            self.rows[app.key].status.set_text("Waiting")
         self.details.get_buffer().set_text("")
         self.status.set_text("Preparing the suggested applications…")
         self._set_running(True)
@@ -289,13 +366,25 @@ class WelcomeWindow(Gtk.Window):
         return False
 
     def _open_bazaar(self, _button: Gtk.Button) -> None:
+        self._launch_bazaar()
+
+    def _open_suggestion(
+        self, _button: Gtk.Button, suggestion: AppSuggestion
+    ) -> None:
+        self._launch_bazaar(suggestion)
+
+    def _launch_bazaar(self, suggestion: AppSuggestion | None = None) -> None:
         flatpak = os.environ.get("SPACED_WELCOME_FLATPAK", "/usr/bin/flatpak")
-        check = subprocess.run(
-            [flatpak, "info", "io.github.crhy.SpacedBazaar"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            check=False,
-        )
+        try:
+            check = subprocess.run(
+                [flatpak, "info", BAZAAR_APP_ID],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+            )
+        except OSError as error:
+            self.status.set_text(f"Could not check SpacedBazaar: {error}")
+            return
         if check.returncode != 0:
             message = (
                 "SpacedBazaar is missing from the base system. Run Spaced Update, "
@@ -305,13 +394,20 @@ class WelcomeWindow(Gtk.Window):
             self._append_detail(message)
             self.details_expander.set_expanded(True)
             return
-        self.status.set_text("Opening the preinstalled SpacedBazaar…")
-        subprocess.Popen(
-            [flatpak, "run", "io.github.crhy.SpacedBazaar"],
-            start_new_session=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+        if suggestion is None:
+            message = "Opening the preinstalled SpacedBazaar…"
+        else:
+            message = f"Opening {suggestion.app_name} in SpacedBazaar…"
+        self.status.set_text(message)
+        try:
+            subprocess.Popen(
+                bazaar_command(flatpak, suggestion),
+                start_new_session=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except OSError as error:
+            self.status.set_text(f"Could not open SpacedBazaar: {error}")
 
     def _open_nvidia_installer(self, _button: Gtk.Button) -> None:
         command = os.environ.get("SPACED_WELCOME_NVIDIA_INSTALLER", "spaced-nvidia-installer")
@@ -363,4 +459,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

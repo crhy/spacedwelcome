@@ -6,7 +6,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from spaced_welcome.catalog import CatalogError, load_catalog, normalize_arch
+from spaced_welcome.catalog import CatalogError, load_catalog
 
 
 class CatalogTests(unittest.TestCase):
@@ -19,46 +19,18 @@ class CatalogTests(unittest.TestCase):
             "brutal-chess": "io.github.crhy.BrutalChess",
             "spaced-update": "org.spacedlinux.SpacedUpdate",
         }
-        self.assertEqual(
-            {key: catalog.get(key).app_id for key in expected},
-            expected,
-        )
+        self.assertEqual({key: catalog.get(key).app_id for key in expected}, expected)
         for key in expected:
-            self.assertEqual(catalog.get(key).source_type, "github-release")
+            self.assertEqual(catalog.get(key).source_type, "spaced-github")
         self.assertTrue(catalog.get("spacedbazaar").preinstalled)
         self.assertFalse(catalog.get("spacedbazaar").suggested)
         self.assertNotIn("spacedbazaar", [app.key for app in catalog.suggested()])
-        self.assertEqual(catalog.get("spacedbazaar").branch, "master")
-        self.assertEqual(catalog.get("voice2text").branch, "master")
-        for key in ("cards-with-cats", "brutal-chess", "spaced-update"):
-            self.assertEqual(catalog.get(key).branch, "stable")
-
-    def test_exact_asset_names_are_derived_per_release_and_arch(self):
-        catalog = load_catalog()
         self.assertEqual(
-            catalog.get("spacedbazaar").asset_name("aarch64", "0.1.2"),
-            "SpacedBazaar-aarch64.flatpak",
-        )
-        self.assertEqual(
-            catalog.get("cards-with-cats").asset_name("x86_64", "v0.3.3"),
-            "ScumWithCats-0.3.3.flatpak",
-        )
-        self.assertEqual(
-            catalog.get("brutal-chess").asset_name("x86_64", "v0.2.1"),
-            "BrutalChess-0.2.1.flatpak",
-        )
-        self.assertEqual(
-            catalog.get("spaced-update").asset_name("x86_64", "8.26.4.0.2"),
-            "SpacedUpdate-8.26.4.0.2-x86_64.flatpak",
+            [app.key for app in catalog.suggested() if app.source_type == "spaced-github"],
+            ["voice2text", "cards-with-cats", "brutal-chess", "spaced-update"],
         )
 
-    def test_architecture_aliases_and_unsupported_architecture(self):
-        self.assertEqual(normalize_arch("amd64"), "x86_64")
-        self.assertEqual(normalize_arch("arm64"), "aarch64")
-        with self.assertRaisesRegex(CatalogError, "Unsupported architecture"):
-            normalize_arch("riscv64")
-
-    def test_catalog_rejects_non_crhy_repository(self):
+    def test_catalog_rejects_source_coordinates_outside_central_policy(self):
         payload = {
             "schema_version": 1,
             "apps": [
@@ -66,18 +38,32 @@ class CatalogTests(unittest.TestCase):
                     "key": "unsafe",
                     "name": "Unsafe",
                     "app_id": "io.example.Unsafe",
-                    "source": {
-                        "type": "github-release",
-                        "repository": "someone/unsafe",
-                        "assets": {"x86_64": {"name": "Unsafe.flatpak"}},
-                    },
+                    "source": {"type": "spaced-github", "repository": "someone/unsafe"},
                 }
             ],
         }
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "catalog.json"
             path.write_text(json.dumps(payload), encoding="utf-8")
-            with self.assertRaisesRegex(CatalogError, "Unsafe GitHub repository"):
+            with self.assertRaisesRegex(CatalogError, "source may only define its type"):
+                load_catalog(path)
+
+    def test_catalog_rejects_obsolete_direct_release_source(self):
+        payload = {
+            "schema_version": 1,
+            "apps": [
+                {
+                    "key": "old",
+                    "name": "Old",
+                    "app_id": "io.example.Old",
+                    "source": {"type": "github-release"},
+                }
+            ],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "catalog.json"
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            with self.assertRaisesRegex(CatalogError, "Unsupported source"):
                 load_catalog(path)
 
 

@@ -26,17 +26,20 @@ class ProgressModelTests(unittest.TestCase):
             {
                 "event": "app-start",
                 "app": "cards-with-cats",
-                "name": "Cards with Cats",
-                "source": "GitHub",
-                "message": "Installing Cards with Cats from GitHub",
+                "name": "Scum With Cats",
+                "source": "Spaced GitHub",
+                "message": "Installing Scum With Cats from Spaced GitHub",
             }
         )
         self.assertEqual(
             model.rows["cards-with-cats"],
-            "Installing Cards with Cats from GitHub…",
+            "Installing Scum With Cats from Spaced GitHub…",
         )
         self.assertIn("LibreOffice: Installing LibreOffice from Flathub", model.details)
-        self.assertIn("Cards with Cats: Installing Cards with Cats from GitHub", model.details)
+        self.assertIn(
+            "Scum With Cats: Installing Scum With Cats from Spaced GitHub",
+            model.details,
+        )
 
     def test_failure_is_actionable_and_visible_in_details(self):
         model = ProgressModel()
@@ -45,14 +48,13 @@ class ProgressModelTests(unittest.TestCase):
                 "event": "app-failure",
                 "app": "voice2text",
                 "name": "Voice2Text AI",
-                "source": "GitHub",
-                "message": "SHA-256 verification failed; the download was discarded",
+                "source": "Spaced GitHub",
+                "message": "Could not configure spaced-github for this user",
             }
         )
-        self.assertIn("SHA-256", model.rows["voice2text"])
-        self.assertIn("discarded", model.details[-1])
+        self.assertIn("configure", model.rows["voice2text"])
+        self.assertIn("spaced-github", model.details[-1])
 
 
 if __name__ == "__main__":
     unittest.main()
-

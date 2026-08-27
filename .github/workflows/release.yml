@@ -1,14 +1,11 @@
-name: Release Debian package
+name: Release packages
 
 on:
   push:
     tags: ["v*"]
 
-permissions:
-  contents: write
-
 jobs:
-  release:
+  package:
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
@@ -18,18 +15,85 @@ jobs:
       - name: Install validation tools
         run: |
           sudo apt-get update
-          sudo apt-get install --yes appstream desktop-file-utils dpkg-dev flatpak ostree shellcheck
-      - name: Test and build
+          sudo apt-get install --yes appstream desktop-file-utils dpkg-dev shellcheck
+      - name: Test and build Debian package
         run: |
           make check
           make deb
           cd dist
           sha256sum "spaced-welcome_$(cat ../VERSION)_all.deb" > "spaced-welcome_$(cat ../VERSION)_all.deb.sha256"
+      - name: Upload Debian artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: spaced-welcome-deb
+          path: |
+            dist/spaced-welcome_*_all.deb
+            dist/spaced-welcome_*_all.deb.sha256
+
+  flatpak:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
+      options: --privileged
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Build Flatpak repository
+        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          manifest-path: flatpak/io.github.crhy.SpacedWelcome.yml
+          branch: master
+          repo-dir: spaced-welcome-repo
+          build-bundle: false
+          upload-artifact: false
+          cache-key: flatpak-builder-${{ github.sha }}
+      - name: Create updateable release bundle
+        run: >-
+          flatpak build-bundle
+          --arch=x86_64
+          --repo-url=https://crhy.github.io/spacedbazaar/flatpak-repo/
+          --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo
+          spaced-welcome-repo
+          SpacedWelcome-x86_64.flatpak
+          io.github.crhy.SpacedWelcome
+          master
+      - name: Verify exported metadata and icon
+        shell: bash
+        run: |
+          set -euo pipefail
+          probe=$(mktemp -d)
+          repo="$probe/repo"
+          checkout="$probe/checkout"
+          ostree init --repo="$repo" --mode=archive-z2
+          flatpak build-import-bundle --no-update-summary "$repo" SpacedWelcome-x86_64.flatpak
+          ref=app/io.github.crhy.SpacedWelcome/x86_64/master
+          ostree --repo="$repo" refs | grep -Fx "$ref"
+          ostree --repo="$repo" checkout --user-mode "$ref" "$checkout"
+          test -f "$checkout/export/share/metainfo/io.github.crhy.SpacedWelcome.metainfo.xml"
+          test -f "$checkout/export/share/icons/hicolor/scalable/apps/io.github.crhy.SpacedWelcome.svg"
+      - name: Upload Flatpak artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: spaced-welcome-flatpak
+          path: SpacedWelcome-x86_64.flatpak
+          if-no-files-found: error
+          compression-level: 0
+
+  release:
+    needs: [package, flatpak]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: spaced-welcome-*
+          path: release
+          merge-multiple: true
       - name: Publish GitHub release assets
         uses: softprops/action-gh-release@v2
         with:
           name: Spaced Linux Welcome ${{ github.ref_name }}
           generate_release_notes: true
-          files: |
-            dist/spaced-welcome_*_all.deb
-            dist/spaced-welcome_*_all.deb.sha256
+          files: release/*

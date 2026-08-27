@@ -44,7 +44,7 @@ install -m 0644 "$root/data/spaced-welcome-autostart.desktop" \
 install -m 0644 "$root/data/io.github.crhy.SpacedWelcome.metainfo.xml" \
     "$stage/usr/share/metainfo/io.github.crhy.SpacedWelcome.metainfo.xml"
 install -m 0644 "$root/data/icons/hicolor/scalable/apps/spaced-welcome.svg" \
-    "$stage/usr/share/icons/hicolor/scalable/apps/spaced-welcome.svg"
+    "$stage/usr/share/icons/hicolor/scalable/apps/io.github.crhy.SpacedWelcome.svg"
 install -m 0644 "$root/packaging/debian/copyright" \
     "$stage/usr/share/doc/spaced-welcome/copyright"
 install -m 0644 "$root/README.md" "$stage/usr/share/doc/spaced-welcome/README.md"
@@ -58,4 +58,3 @@ mkdir -p "$output_dir"
 rm -f -- "$artifact"
 dpkg-deb --root-owner-group --build "$stage" "$artifact"
 printf '%s\n' "$artifact"
-

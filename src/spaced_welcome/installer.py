@@ -4,61 +4,38 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
-from dataclasses import asdict, dataclass
-import hashlib
-import json
+from dataclasses import dataclass
 import os
 from pathlib import Path
 import re
 import shutil
 import subprocess
-import tempfile
 import time
 from typing import Any
-from urllib.parse import unquote, urlparse
 
-from .catalog import App, Catalog, CatalogError, normalize_arch
+from .catalog import App, Catalog, CatalogError
 
 
 EventCallback = Callable[[dict[str, Any]], None]
-DIGEST_RE = re.compile(r"^sha256:([0-9a-f]{64})$")
 BRANCH_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
-IMPORT_RE = re.compile(r"(?:^|\s)(app/[A-Za-z0-9._-]+/[A-Za-z0-9_-]+/[A-Za-z0-9._-]+)(?:\s|$)")
+REMOTE_DESCRIPTORS = {
+    "flathub": "https://flathub.org/repo/flathub.flatpakrepo",
+    "spaced-github": "https://crhy.github.io/spacedbazaar/spaced-github.flatpakrepo",
+}
+REMOTE_URLS = {
+    "flathub": "https://dl.flathub.org/repo/",
+    "spaced-github": "https://crhy.github.io/spacedbazaar/flatpak-repo/",
+}
 
 
 class InstallError(RuntimeError):
-    """An actionable resolver, validation, or installation failure."""
-
-
-@dataclass(frozen=True)
-class ReleaseAsset:
-    repository: str
-    tag: str
-    name: str
-    url: str
-    size: int
-    digest: str | None
-    asset_id: int | None
-    app_id: str
-    arch: str
-    branch: str
-
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+    """An actionable remote or installation failure."""
 
 
 @dataclass(frozen=True)
 class CommandResult:
     returncode: int
     output: str
-
-
-def _default_cache_dir() -> Path:
-    configured = os.environ.get("SPACED_WELCOME_CACHE_DIR")
-    if configured:
-        return Path(configured)
-    base = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
-    return base / "spaced-welcome"
 
 
 class Installer:
@@ -68,22 +45,10 @@ class Installer:
         self,
         catalog: Catalog,
         callback: EventCallback | None = None,
-        arch: str | None = None,
     ) -> None:
         self.catalog = catalog
         self.callback = callback or (lambda _event: None)
-        self.arch = normalize_arch(arch)
         self.flatpak = os.environ.get("SPACED_WELCOME_FLATPAK", "/usr/bin/flatpak")
-        self.ostree = os.environ.get("SPACED_WELCOME_OSTREE", "/usr/bin/ostree")
-        self.curl = os.environ.get("SPACED_WELCOME_CURL", "/usr/bin/curl")
-        self.api_root = os.environ.get(
-            "SPACED_WELCOME_GITHUB_API_ROOT", "https://api.github.com"
-        ).rstrip("/")
-        if self.api_root != "https://api.github.com" and not os.environ.get(
-            "SPACED_WELCOME_ALLOW_TEST_API"
-        ):
-            raise InstallError("A non-GitHub API endpoint is allowed only in the test harness")
-        self.cache_dir = _default_cache_dir()
         self.retry_delay = float(os.environ.get("SPACED_WELCOME_RETRY_DELAY", "2"))
         self.max_attempts = max(1, int(os.environ.get("SPACED_WELCOME_ATTEMPTS", "3")))
 
@@ -167,278 +132,42 @@ class Installer:
             self.emit("detail", app, message=line)
         return CommandResult(process.wait(), "".join(chunks).strip())
 
-    @staticmethod
-    def _validate_release_url(repository: str, tag: str, asset_name: str, url: str) -> None:
-        parsed = urlparse(url)
-        expected_path = f"/{repository}/releases/download/{tag}/{asset_name}"
-        if (
-            parsed.scheme != "https"
-            or parsed.hostname != "github.com"
-            or parsed.port is not None
-            or parsed.username is not None
-            or parsed.password is not None
-            or parsed.query
-            or parsed.fragment
-            or unquote(parsed.path) != expected_path
-        ):
-            raise InstallError(
-                f"GitHub returned an unexpected download URL for {asset_name}; refusing it"
-            )
-
-    def resolve(self, app: App) -> ReleaseAsset:
-        if app.source_type != "github-release" or not app.repository:
-            raise InstallError(f"{app.name} is installed from Flathub, not a GitHub release")
-        if not BRANCH_RE.fullmatch(app.branch):
-            raise InstallError(f"Unsafe Flatpak branch configured for {app.name}: {app.branch}")
-
-        self.emit("phase", app, phase="resolve", message=f"Checking {app.repository} latest release")
-        with tempfile.TemporaryDirectory(prefix="spaced-welcome-release-") as directory:
-            response_path = Path(directory) / "release.json"
-            api_url = f"{self.api_root}/repos/{app.repository}/releases/latest"
-            result = self._run_capture(
-                [
-                    self.curl,
-                    "--fail",
-                    "--location",
-                    "--silent",
-                    "--show-error",
-                    "--retry",
-                    "3",
-                    "--retry-all-errors",
-                    "--connect-timeout",
-                    "15",
-                    "--proto",
-                    "=https",
-                    "--proto-redir",
-                    "=https",
-                    "--header",
-                    "Accept: application/vnd.github+json",
-                    "--header",
-                    "X-GitHub-Api-Version: 2022-11-28",
-                    "--header",
-                    "User-Agent: spaced-welcome/1.0.0",
-                    "--output",
-                    str(response_path),
-                    api_url,
-                ],
-                timeout=90,
-                app=app,
-            )
-            if result.returncode != 0:
-                raise InstallError(f"Could not query the latest {app.repository} release")
-            try:
-                release = json.loads(response_path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError) as error:
-                raise InstallError(f"GitHub returned invalid release data for {app.name}") from error
-
-        if release.get("draft") or release.get("prerelease"):
-            raise InstallError(f"The latest {app.name} release is not stable")
-        tag = release.get("tag_name")
-        if not isinstance(tag, str) or not tag or "/" in tag or tag in {".", ".."}:
-            raise InstallError(f"GitHub returned an unsafe release tag for {app.name}")
-        expected_name = app.asset_name(self.arch, tag)
-        assets = [
-            asset
-            for asset in release.get("assets", [])
-            if isinstance(asset, dict)
-            and asset.get("name") == expected_name
-            and asset.get("state", "uploaded") == "uploaded"
-        ]
-        if len(assets) != 1:
-            raise InstallError(
-                f"Expected exactly one {expected_name} asset on {app.repository} {tag}; "
-                f"found {len(assets)}"
-            )
-        raw = assets[0]
-        url = raw.get("browser_download_url")
-        size = raw.get("size")
-        if not isinstance(url, str):
-            raise InstallError(f"The {expected_name} release asset has no download URL")
-        if not isinstance(size, int) or size <= 0:
-            raise InstallError(f"The {expected_name} release asset has an invalid size")
-        self._validate_release_url(app.repository, tag, expected_name, url)
-
-        digest = raw.get("digest")
-        if digest is not None and (not isinstance(digest, str) or not DIGEST_RE.fullmatch(digest)):
-            raise InstallError(f"GitHub returned an invalid SHA-256 digest for {expected_name}")
-        asset_id = raw.get("id") if isinstance(raw.get("id"), int) else None
-        resolved = ReleaseAsset(
-            repository=app.repository,
-            tag=tag,
-            name=expected_name,
-            url=url,
-            size=size,
-            digest=digest,
-            asset_id=asset_id,
-            app_id=app.app_id,
-            arch=self.arch,
-            branch=app.branch,
-        )
-        self.emit(
-            "resolved",
-            app,
-            phase="resolve",
-            message=f"Resolved {expected_name} from {tag}",
-            release=resolved.to_dict(),
-        )
-        return resolved
-
-    @staticmethod
-    def _sha256(path: Path) -> str:
-        digest = hashlib.sha256()
-        with path.open("rb") as source:
-            for chunk in iter(lambda: source.read(1024 * 1024), b""):
-                digest.update(chunk)
-        return digest.hexdigest()
-
-    def _verify_download(self, app: App, asset: ReleaseAsset, path: Path) -> None:
-        if path.is_symlink() or not path.is_file():
-            raise InstallError(f"Downloaded file for {app.name} is missing or unsafe")
-        actual_size = path.stat().st_size
-        if actual_size != asset.size:
-            raise InstallError(
-                f"Downloaded {asset.name} is {actual_size} bytes; GitHub reports {asset.size} bytes"
-            )
-        actual_digest = self._sha256(path)
-        if asset.digest:
-            expected_digest = DIGEST_RE.fullmatch(asset.digest).group(1)  # type: ignore[union-attr]
-            if actual_digest != expected_digest:
-                raise InstallError(
-                    f"SHA-256 verification failed for {asset.name}; the download was discarded"
-                )
-            message = f"Verified {asset.name} SHA-256 {actual_digest}"
-        else:
-            message = f"Verified {asset.name} size; GitHub did not publish a digest"
-        self.emit("verified", app, phase="download", message=message, sha256=actual_digest)
-
-    def download(self, app: App, asset: ReleaseAsset) -> Path:
-        app_cache = self.cache_dir / app.key
-        app_cache.mkdir(parents=True, exist_ok=True, mode=0o700)
-        final_path = app_cache / asset.name
-        partial_path = app_cache / f".{asset.name}.part"
-        for candidate in (final_path, partial_path):
-            if candidate.is_symlink():
-                candidate.unlink()
-
-        if final_path.exists():
-            try:
-                self._verify_download(app, asset, final_path)
-                self.emit("phase", app, phase="download", message=f"Using cached {asset.name}")
-                return final_path
-            except InstallError:
-                final_path.unlink(missing_ok=True)
-
-        self.emit(
-            "phase",
-            app,
-            phase="download",
-            message=f"Downloading {asset.name} from GitHub ({asset.size} bytes)",
-        )
-        result = self._run_stream(
-            [
-                self.curl,
-                "--fail",
-                "--location",
-                "--progress-bar",
-                "--show-error",
-                "--retry",
-                "3",
-                "--retry-all-errors",
-                "--connect-timeout",
-                "15",
-                "--proto",
-                "=https",
-                "--proto-redir",
-                "=https",
-                "--continue-at",
-                "-",
-                "--output",
-                str(partial_path),
-                asset.url,
-            ],
-            app=app,
-        )
-        if result.returncode != 0:
-            raise InstallError(f"Download failed for {asset.name}; retry the installation")
+    def ensure_remote(self, name: str, app: App | None = None) -> None:
         try:
-            self._verify_download(app, asset, partial_path)
-        except InstallError:
-            partial_path.unlink(missing_ok=True)
-            raise
-        os.replace(partial_path, final_path)
-        return final_path
-
-    def inspect_bundle(self, app: App, bundle: Path) -> str:
-        if bundle.suffix != ".flatpak":
-            raise InstallError(f"Refusing bundle without a .flatpak suffix: {bundle.name}")
-        # The import repository must live where the host can see it. Inside the
-        # Spaced Welcome Flatpak, ostree and flatpak execute on the host via
-        # flatpak-spawn, so the sandbox-private /tmp is not readable by them.
-        # The xdg-cache based cache directory is shared with the host.
-        repo = self.cache_dir / "import" / app.key
-        if repo.exists():
-            shutil.rmtree(repo)
-        repo.parent.mkdir(parents=True, exist_ok=True)
-        repo.mkdir(mode=0o700)
-        init = self._run_capture(
-            [self.ostree, f"--repo={repo}", "init", "--mode=archive-z2"], app=app
-        )
-        if init.returncode != 0:
-            raise InstallError("Could not create the temporary Flatpak inspection repository")
-        imported = self._run_capture(
-            [
-                self.flatpak,
-                "build-import-bundle",
-                "--no-update-summary",
-                str(repo),
-                str(bundle),
-            ],
-            timeout=300,
-            app=app,
-        )
-        try:
-            if imported.returncode != 0:
-                raise InstallError(f"{bundle.name} is not a valid Flatpak bundle")
-            refs = sorted(set(IMPORT_RE.findall(imported.output)))
-        finally:
-            shutil.rmtree(repo, ignore_errors=True)
-        if len(refs) != 1:
-            raise InstallError(f"Could not determine one Flatpak ref inside {bundle.name}")
-        expected = f"app/{app.app_id}/{self.arch}/{app.branch}"
-        if refs[0] != expected:
-            raise InstallError(
-                f"Flatpak ref mismatch for {bundle.name}: expected {expected}, found {refs[0]}"
-            )
-        self.emit(
-            "verified",
-            app,
-            phase="inspect",
-            message=f"Verified Flatpak ref {expected}",
-            ref=expected,
-        )
-        return expected
-
-    def ensure_flathub(self, app: App | None = None) -> None:
+            descriptor_url = REMOTE_DESCRIPTORS[name]
+            expected_url = REMOTE_URLS[name]
+        except KeyError as error:
+            raise InstallError(f"Unsupported Flatpak source: {name}") from error
         remotes = self._run_capture(
-            [self.flatpak, "remotes", "--user", "--columns=name"], app=app
+            [self.flatpak, "remotes", "--user", "--columns=name,url"], app=app
         )
-        names = {line.strip() for line in remotes.output.splitlines()}
-        if remotes.returncode == 0 and "flathub" in names:
-            return
-        self.emit("phase", app, phase="remote", message="Adding the Flathub runtime remote")
+        if remotes.returncode == 0:
+            for line in remotes.output.splitlines():
+                remote_name, separator, remote_url = line.partition("\t")
+                if remote_name.strip() != name:
+                    continue
+                if not separator or remote_url.strip().rstrip("/") != expected_url.rstrip("/"):
+                    raise InstallError(
+                        f"The existing {name} remote has an unexpected URL; "
+                        "remove or repair it before installing applications"
+                    )
+                return
+        packaged = Path(f"/usr/share/flatpak/remotes.d/{name}.flatpakrepo")
+        descriptor = str(packaged) if packaged.is_file() else descriptor_url
+        self.emit("phase", app, phase="remote", message=f"Adding the {name} signed remote")
         result = self._run_stream(
             [
                 self.flatpak,
                 "remote-add",
                 "--user",
                 "--if-not-exists",
-                "flathub",
-                "https://flathub.org/repo/flathub.flatpakrepo",
+                name,
+                descriptor,
             ],
             app=app,
         )
         if result.returncode != 0:
-            raise InstallError("Could not configure Flathub for this user")
+            raise InstallError(f"Could not configure {name} for this user")
 
     def _flatpak_info(self, app: App, user_only: bool = False) -> bool:
         command = [self.flatpak, "info"]
@@ -448,26 +177,16 @@ class Installer:
         result = self._run_capture(command, timeout=30, app=app)
         return result.returncode == 0
 
-    def _install_command(self, app: App, bundle: Path | None = None) -> bool:
-        if bundle is None:
-            command = [
-                self.flatpak,
-                "install",
-                "--user",
-                "--noninteractive",
-                "-y",
-                "flathub",
-                app.app_id,
-            ]
-        else:
-            command = [
-                self.flatpak,
-                "install",
-                "--user",
-                "--noninteractive",
-                "-y",
-                str(bundle),
-            ]
+    def _install_command(self, app: App, remote: str) -> bool:
+        command = [
+            self.flatpak,
+            "install",
+            "--user",
+            "--noninteractive",
+            "-y",
+            remote,
+            f"{app.app_id}//{app.branch}",
+        ]
 
         for attempt in range(1, self.max_attempts + 1):
             self.emit(
@@ -536,13 +255,11 @@ class Installer:
                 )
                 return True
 
-            self.ensure_flathub(app)
-            bundle: Path | None = None
-            if app.source_type == "github-release":
-                asset = self.resolve(app)
-                bundle = self.download(app, asset)
-                self.inspect_bundle(app, bundle)
-            if not self._install_command(app, bundle):
+            if not BRANCH_RE.fullmatch(app.branch):
+                raise InstallError(f"Unsafe Flatpak branch configured for {app.name}: {app.branch}")
+            remote = "spaced-github" if app.source_type == "spaced-github" else "flathub"
+            self.ensure_remote(remote, app)
+            if not self._install_command(app, remote):
                 raise InstallError(
                     f"{app.name} could not be installed after {self.max_attempts} attempts"
                 )
@@ -552,8 +269,6 @@ class Installer:
                 app,
                 message=f"Installed {app.name} from {app.source_label}",
             )
-            if bundle and not os.environ.get("SPACED_WELCOME_KEEP_DOWNLOADS"):
-                bundle.unlink(missing_ok=True)
             return True
         except (CatalogError, InstallError, OSError) as error:
             self.emit("app-failure", app, message=str(error))
