@@ -17,6 +17,11 @@
   <developer id="io.github.crhy"><name>Spaced Linux Team</name></developer>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="0.1.8" date="2026-08-27">
+      <description>
+        <p>Aligns the Suggested Applications heading with its application rows for a cleaner first-run layout.</p>
+      </description>
+    </release>
     <release version="0.1.7" date="2026-08-27">
       <description>
         <p>Fixes every Flathub suggestion to use its published stable branch and moves SpacedBazaar into post-install delivery to keep the ISO lean.</p>

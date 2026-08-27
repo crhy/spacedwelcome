@@ -153,8 +153,9 @@ class WelcomeWindow(Gtk.Window):
         actions.pack_start(self.nvidia_button, True, True, 0)
         setup_page.pack_start(actions, False, False, 0)
 
-        apps_label = Gtk.Label(label="Suggested applications", xalign=0)
+        apps_label = Gtk.Label(label="Suggested Applications", xalign=0)
         apps_label.get_style_context().add_class("choice-title")
+        apps_label.set_margin_start(10)
         apps_label.set_margin_top(18)
         apps_label.set_margin_bottom(6)
         setup_page.pack_start(apps_label, False, False, 0)
