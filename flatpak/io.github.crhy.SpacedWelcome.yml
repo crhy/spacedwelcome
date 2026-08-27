@@ -27,9 +27,8 @@ modules:
   - install -Dm755 bin/spaced-nvidia-installer /app/bin/spaced-nvidia-installer
   - install -Dm644 data/spaced-welcome.desktop /app/share/applications/io.github.crhy.SpacedWelcome.desktop
   - install -Dm644 data/io.github.crhy.SpacedWelcome.metainfo.xml -t /app/share/metainfo/
-  - install -Dm644 data/icons/hicolor/scalable/apps/spaced-welcome.svg /app/share/icons/hicolor/scalable/apps/io.github.crhy.SpacedWelcome.svg
-  - install -Dm644 flatpak/icon-128.png /app/share/icons/hicolor/128x128/apps/io.github.crhy.SpacedWelcome.png
-  - install -Dm644 flatpak/icon-64.png /app/share/icons/hicolor/64x64/apps/io.github.crhy.SpacedWelcome.png
+  - install -Dm644 data/icons/hicolor/scalable/apps/io.github.crhy.SpacedBazaar.svg /app/share/icons/hicolor/scalable/apps/io.github.crhy.SpacedBazaar.svg
+  - for size in 48 64 128 256 512; do install -Dm644 "data/icons/hicolor/${size}x${size}/apps/io.github.crhy.SpacedWelcome.png" "/app/share/icons/hicolor/${size}x${size}/apps/io.github.crhy.SpacedWelcome.png"; done
   - for f in /app/bin/spaced-welcome /app/bin/spaced-welcome-install
       /app/share/spacedwelcome/bin/spaced-welcome
       /app/share/spacedwelcome/bin/spaced-welcome-install; do

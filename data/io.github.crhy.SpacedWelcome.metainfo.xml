@@ -16,7 +16,18 @@
   <url type="homepage">https://github.com/crhy/spacedwelcome</url>
   <developer id="io.github.crhy"><name>Spaced Linux Team</name></developer>
   <content_rating type="oars-1.1"/>
+  <screenshots>
+    <screenshot type="default">
+      <image type="source">https://raw.githubusercontent.com/crhy/spacedwelcome/main/screenshots/welcome-0.1.8.png</image>
+      <caption>Suggested applications from Flathub and the signed Spaced GitHub repository</caption>
+    </screenshot>
+  </screenshots>
   <releases>
+    <release version="0.1.9" date="2026-08-27">
+      <description>
+        <p>Adds a clean, full-window AppStream screenshot, gives the SpacedBazaar shortcut its real market-stall icon, and uses the canonical silver Spaced emblem for the Welcome launcher.</p>
+      </description>
+    </release>
     <release version="0.1.8" date="2026-08-27">
       <description>
         <p>Aligns the Suggested Applications heading with its application rows for a cleaner first-run layout.</p>

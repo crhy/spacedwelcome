@@ -100,6 +100,12 @@ class WelcomeWindow(Gtk.Window):
         self.rows: dict[str, AppRow] = {}
         self.install_process: subprocess.Popen[str] | None = None
 
+        # Installed builds find these through hicolor normally. Add the source
+        # tree while developing so screenshots and tests resolve the same art.
+        source_icons = Path(__file__).resolve().parents[2] / "data/icons/hicolor"
+        if source_icons.is_dir():
+            Gtk.IconTheme.get_default().append_search_path(str(source_icons))
+
         provider = Gtk.CssProvider()
         provider.load_from_data(CSS)
         Gtk.StyleContext.add_provider_for_screen(
@@ -142,7 +148,9 @@ class WelcomeWindow(Gtk.Window):
         self.suggested_button.connect("clicked", self._start_suggested_install)
         actions.pack_start(self.suggested_button, True, True, 0)
         self.bazaar_button = self._choice(
-            "system-software-update", "Open SpacedBazaar", "Available after installing suggested apps"
+            "io.github.crhy.SpacedBazaar",
+            "Open SpacedBazaar",
+            "Available after installing suggested apps",
         )
         self.bazaar_button.connect("clicked", self._open_bazaar)
         actions.pack_start(self.bazaar_button, True, True, 0)

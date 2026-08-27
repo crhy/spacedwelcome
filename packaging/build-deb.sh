@@ -43,8 +43,13 @@ install -m 0644 "$root/data/spaced-welcome-autostart.desktop" \
     "$stage/etc/xdg/autostart/spaced-welcome.desktop"
 install -m 0644 "$root/data/io.github.crhy.SpacedWelcome.metainfo.xml" \
     "$stage/usr/share/metainfo/io.github.crhy.SpacedWelcome.metainfo.xml"
-install -m 0644 "$root/data/icons/hicolor/scalable/apps/spaced-welcome.svg" \
-    "$stage/usr/share/icons/hicolor/scalable/apps/io.github.crhy.SpacedWelcome.svg"
+install -m 0644 "$root/data/icons/hicolor/scalable/apps/io.github.crhy.SpacedBazaar.svg" \
+    "$stage/usr/share/icons/hicolor/scalable/apps/io.github.crhy.SpacedBazaar.svg"
+for size in 48 64 128 256 512; do
+    install -Dm644 \
+        "$root/data/icons/hicolor/${size}x${size}/apps/io.github.crhy.SpacedWelcome.png" \
+        "$stage/usr/share/icons/hicolor/${size}x${size}/apps/io.github.crhy.SpacedWelcome.png"
+done
 install -m 0644 "$root/packaging/debian/copyright" \
     "$stage/usr/share/doc/spaced-welcome/copyright"
 install -m 0644 "$root/README.md" "$stage/usr/share/doc/spaced-welcome/README.md"
