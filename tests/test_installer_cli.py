@@ -80,6 +80,8 @@ class InstallerCliTests(unittest.TestCase):
                 target.write(json.dumps(args) + '\n')
             command = args[0]
             if command == 'remotes':
+                if os.environ.get('FAKE_REMOTES_FAILURE') == '1':
+                    raise SystemExit(1)
                 if os.environ.get('FAKE_REMOTE_PRESENT') == '1':
                     name = os.environ.get('FAKE_REMOTE_NAME', 'spaced-github')
                     default_url = {
@@ -105,6 +107,8 @@ class InstallerCliTests(unittest.TestCase):
                     or os.environ.get('FAKE_PREINSTALLED') == '1'
                     or pathlib.Path(os.environ['FAKE_MARKER']).exists()
                 )
+                if os.environ.get('FAKE_WRONG_BRANCH') == '1' and not pathlib.Path(os.environ['FAKE_MARKER']).exists():
+                    installed = 'master' not in args
                 raise SystemExit(0 if installed else 1)
             raise SystemExit(0)
             """,
@@ -149,10 +153,9 @@ class InstallerCliTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         additions = [command for command in self.commands() if command[0] == "remote-add"]
-        self.assertEqual(len(additions), 1)
-        self.assertEqual(additions[0][-2], "spaced-github")
+        self.assertEqual([item[-2] for item in additions], ["flathub", "spaced-github"])
         self.assertEqual(
-            additions[0][-1],
+            additions[1][-1],
             "https://crhy.github.io/spacedbazaar/spaced-github.flatpakrepo",
         )
 
@@ -200,7 +203,7 @@ class InstallerCliTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 1)
         failures = [event for event in self.events(result) if event["event"] == "app-failure"]
-        self.assertIn("Could not configure spaced-github", failures[0]["message"])
+        self.assertIn("Could not configure flathub", failures[0]["message"])
         self.assertFalse(any(command[0] == "install" for command in self.commands()))
 
     def test_preinstalled_app_is_checked_but_never_installed(self):
@@ -217,6 +220,21 @@ class InstallerCliTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual([command[0] for command in self.commands()], ["info"])
+
+    def test_wrong_installed_branch_does_not_skip_requested_branch(self):
+        result = self.run_cli(
+            "--install", "test-app", "--events", extra_env={"FAKE_WRONG_BRANCH": "1"}
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue(any(command[0] == "install" for command in self.commands()))
+        self.assertEqual(self.commands()[0][-2:], ["io.github.crhy.TestApp", "master"])
+
+    def test_remotes_read_failure_stops_install_without_mutating_remotes(self):
+        result = self.run_cli(
+            "--install", "test-app", "--events", extra_env={"FAKE_REMOTES_FAILURE": "1"}
+        )
+        self.assertEqual(result.returncode, 1)
+        self.assertFalse(any(command[0] in {"install", "remote-add"} for command in self.commands()))
 
 
 if __name__ == "__main__":

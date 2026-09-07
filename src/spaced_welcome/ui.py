@@ -19,7 +19,7 @@ from gi.repository import GLib, Gtk  # noqa: E402
 
 from .about import HOMEPAGE_LABEL, HOMEPAGE_URL, display_version
 from .catalog import App, CatalogError, load_catalog
-from .help import BAZAAR_APP_ID, SUGGESTIONS, AppSuggestion, bazaar_command
+from .help import BAZAAR_APP_ID, GUIDES, SUGGESTIONS, AppSuggestion, bazaar_command
 from .progress import ProgressModel
 
 
@@ -99,6 +99,8 @@ class WelcomeWindow(Gtk.Window):
         self.model = ProgressModel()
         self.rows: dict[str, AppRow] = {}
         self.install_process: subprocess.Popen[str] | None = None
+        self.running = False
+        self.pending_bazaar: tuple[AppSuggestion | None] | None = None
 
         # Installed builds find these through hicolor normally. Add the source
         # tree while developing so screenshots and tests resolve the same art.
@@ -150,7 +152,7 @@ class WelcomeWindow(Gtk.Window):
         self.bazaar_button = self._choice(
             "io.github.crhy.SpacedBazaar",
             "Open SpacedBazaar",
-            "Available after installing suggested apps",
+            "Install the app store if needed, then open it",
         )
         self.bazaar_button.connect("clicked", self._open_bazaar)
         actions.pack_start(self.bazaar_button, True, True, 0)
@@ -252,7 +254,7 @@ class WelcomeWindow(Gtk.Window):
             label=(
                 "Rotate the desktop cube with Ctrl+Alt+left-drag. Zoom with "
                 "Shift+Super+mouse wheel (or Shift+Super+Up/Down). Capture an "
-                "area with Super+left-drag. Draw with fire using "
+                "area with Shift+Print (or Ctrl+Shift+left-drag in Compiz). Draw with fire using "
                 "Shift+Super+left-drag, then clear it with Shift+Super+C."
             ),
             xalign=0,
@@ -274,13 +276,28 @@ class WelcomeWindow(Gtk.Window):
         safety.get_style_context().add_class("choice-detail")
         content.pack_start(safety, False, False, 0)
 
+        for title, instructions, source_url in GUIDES:
+            guide = Gtk.Expander(label=title)
+            guide_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+            guide_box.set_border_width(10)
+            copy = Gtk.Label(label=instructions, xalign=0)
+            copy.set_line_wrap(True)
+            copy.set_selectable(True)
+            guide_box.pack_start(copy, False, False, 0)
+            source = Gtk.LinkButton.new_with_label(source_url, "More information online")
+            source.set_halign(Gtk.Align.START)
+            guide_box.pack_start(source, False, False, 0)
+            guide.add(guide_box)
+            content.pack_start(guide, False, False, 0)
+
         heading = Gtk.Label(label="What would you like to do?", xalign=0)
         heading.get_style_context().add_class("choice-title")
         content.pack_start(heading, False, False, 0)
         introduction = Gtk.Label(
             label=(
                 "Choose an activity to open the recommended app directly in "
-                "SpacedBazaar. Nothing is installed until you confirm it there."
+                "SpacedBazaar. The store is installed if needed; choose whether "
+                "to install the recommended app when its page opens."
             ),
             xalign=0,
         )
@@ -318,7 +335,9 @@ class WelcomeWindow(Gtk.Window):
         self.details.scroll_to_mark(mark, 0.0, True, 0.0, 1.0)
 
     def _set_running(self, running: bool) -> None:
+        self.running = running
         self.suggested_button.set_sensitive(not running)
+        self.bazaar_button.set_sensitive(not running)
         if running:
             self.spinner.show()
             self.spinner.start()
@@ -327,15 +346,20 @@ class WelcomeWindow(Gtk.Window):
             self.spinner.hide()
 
     def _start_suggested_install(self, _button: Gtk.Button) -> None:
-        if self.install_process is not None:
+        self._start_install("suggested")
+
+    def _start_install(self, selection: str) -> None:
+        if self.running:
             return
         self.model = ProgressModel()
-        for app in self.catalog.suggested():
-            self.rows[app.key].status.set_text("Waiting")
+        selected = self.catalog.suggested() if selection == "suggested" else [self.catalog.get(selection)]
+        for app in selected:
+            if app.key in self.rows:
+                self.rows[app.key].status.set_text("Waiting")
         self.details.get_buffer().set_text("")
-        self.status.set_text("Preparing the suggested applications…")
+        self.status.set_text("Preparing the selected applications…")
         self._set_running(True)
-        threading.Thread(target=self._install_worker, daemon=True).start()
+        threading.Thread(target=self._install_worker, args=(selection,), daemon=True).start()
 
     @staticmethod
     def _installer_command() -> str:
@@ -347,8 +371,8 @@ class WelcomeWindow(Gtk.Window):
             return str(installed)
         return str(Path(__file__).resolve().parents[2] / "bin" / "spaced-welcome-install")
 
-    def _install_worker(self) -> None:
-        command = [self._installer_command(), "--install", "suggested", "--events"]
+    def _install_worker(self, selection: str) -> None:
+        command = [self._installer_command(), "--install", selection, "--events"]
         environment = os.environ.copy()
         environment["PYTHONUNBUFFERED"] = "1"
         try:
@@ -398,6 +422,10 @@ class WelcomeWindow(Gtk.Window):
 
     def _install_finished(self, returncode: int) -> bool:
         self._set_running(False)
+        pending = self.pending_bazaar
+        self.pending_bazaar = None
+        if returncode == 0 and pending is not None:
+            self._launch_bazaar(pending[0], install_missing=False)
         if returncode != 0 and not self.model.summary.lower().startswith("installed"):
             self.status.set_text("Some applications failed. Open Details for the exact error.")
             self.details_expander.set_expanded(True)
@@ -411,7 +439,19 @@ class WelcomeWindow(Gtk.Window):
     ) -> None:
         self._launch_bazaar(suggestion)
 
-    def _launch_bazaar(self, suggestion: AppSuggestion | None = None) -> None:
+    def _launch_bazaar(
+        self, suggestion: AppSuggestion | None = None, *, install_missing: bool = True
+    ) -> None:
+        if self.running:
+            self.status.set_text("Please wait for the current installation to finish.")
+            return
+        self._set_running(True)
+        self.status.set_text("Checking SpacedBazaar…")
+        threading.Thread(
+            target=self._check_bazaar, args=(suggestion, install_missing), daemon=True
+        ).start()
+
+    def _check_bazaar(self, suggestion: AppSuggestion | None, install_missing: bool) -> None:
         flatpak = os.environ.get("SPACED_WELCOME_FLATPAK", "/usr/bin/flatpak")
         try:
             check = subprocess.run(
@@ -419,24 +459,40 @@ class WelcomeWindow(Gtk.Window):
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 check=False,
+                timeout=30,
             )
-        except OSError as error:
+        except (OSError, subprocess.TimeoutExpired) as error:
+            GLib.idle_add(self._bazaar_checked, suggestion, install_missing, False, str(error))
+        else:
+            GLib.idle_add(
+                self._bazaar_checked, suggestion, install_missing, check.returncode == 0, None
+            )
+
+    def _bazaar_checked(
+        self, suggestion: AppSuggestion | None, install_missing: bool,
+        installed: bool, error: str | None,
+    ) -> bool:
+        self._set_running(False)
+        if error is not None:
             self.status.set_text(f"Could not check SpacedBazaar: {error}")
-            return
-        if check.returncode != 0:
-            message = (
-                "SpacedBazaar is not installed yet. Choose Install Suggested Apps first, "
-                "then this link will open the app page automatically."
-            )
+            return False
+        if not installed:
+            if install_missing:
+                self.pending_bazaar = (suggestion,)
+                self.pages.set_visible_child_name("setup")
+                self._start_install("spacedbazaar")
+                return False
+            message = "SpacedBazaar installation finished, but the app is still unavailable. Open Details."
             self.status.set_text(message)
             self._append_detail(message)
             self.details_expander.set_expanded(True)
-            return
+            return False
         if suggestion is None:
             message = "Opening SpacedBazaar…"
         else:
             message = f"Opening {suggestion.app_name} in SpacedBazaar…"
         self.status.set_text(message)
+        flatpak = os.environ.get("SPACED_WELCOME_FLATPAK", "/usr/bin/flatpak")
         try:
             subprocess.Popen(
                 bazaar_command(flatpak, suggestion),
@@ -446,6 +502,7 @@ class WelcomeWindow(Gtk.Window):
             )
         except OSError as error:
             self.status.set_text(f"Could not open SpacedBazaar: {error}")
+        return False
 
     def _open_nvidia_installer(self, _button: Gtk.Button) -> None:
         command = os.environ.get("SPACED_WELCOME_NVIDIA_INSTALLER", "spaced-nvidia-installer")
@@ -479,6 +536,8 @@ def _mark_shown() -> bool:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="spaced-welcome")
     parser.add_argument("--first-run", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--page", choices=("setup", "help"), default="setup",
+                        help="open the setup or Help & Apps page")
     args = parser.parse_args(argv)
     if args.first_run and (_is_live_session() or _state_file().exists()):
         return 0
@@ -488,6 +547,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"spaced-welcome: {error}", file=sys.stderr)
         return 1
     window.show_all()
+    window.pages.set_visible_child_name(args.page)
     window.spinner.hide()
     if args.first_run:
         GLib.idle_add(_mark_shown)

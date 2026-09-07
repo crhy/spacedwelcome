@@ -10,6 +10,17 @@ from spaced_welcome.catalog import CatalogError, load_catalog
 
 
 class CatalogTests(unittest.TestCase):
+    def test_malformed_json_types_fail_with_catalog_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "catalog.json"
+            for payload in ([], None, {"schema_version": 1, "apps": [
+                {"key": None, "source": {"type": "flathub"}}
+            ]}):
+                with self.subTest(payload=payload):
+                    path.write_text(json.dumps(payload), encoding="utf-8")
+                    with self.assertRaises(CatalogError):
+                        load_catalog(path)
+
     def test_verified_catalog_ids_and_sources(self):
         catalog = load_catalog()
         expected = {

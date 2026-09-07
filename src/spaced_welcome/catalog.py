@@ -70,7 +70,7 @@ def load_catalog(path: str | os.PathLike[str] | None = None) -> Catalog:
     except (OSError, json.JSONDecodeError) as error:
         raise CatalogError(f"Could not load catalog {source_path}: {error}") from error
 
-    if payload.get("schema_version") != 1 or not isinstance(payload.get("apps"), list):
+    if not isinstance(payload, dict) or payload.get("schema_version") != 1 or not isinstance(payload.get("apps"), list):
         raise CatalogError("Catalog must use schema_version 1 and contain an apps list")
 
     apps: list[App] = []
@@ -85,11 +85,11 @@ def load_catalog(path: str | os.PathLike[str] | None = None) -> Catalog:
         source = raw["source"]
         source_type = source.get("type")
         branch = raw.get("branch")
-        if not KEY_RE.fullmatch(key):
+        if not isinstance(key, str) or not KEY_RE.fullmatch(key):
             raise CatalogError(f"Invalid application key: {key!r}")
         if key in seen_keys:
             raise CatalogError(f"Duplicate application key: {key}")
-        if not APP_ID_RE.fullmatch(app_id):
+        if not isinstance(app_id, str) or not APP_ID_RE.fullmatch(app_id):
             raise CatalogError(f"Invalid Flatpak application ID: {app_id!r}")
         if app_id in seen_ids:
             raise CatalogError(f"Duplicate Flatpak application ID: {app_id}")

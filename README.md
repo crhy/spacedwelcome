@@ -4,7 +4,7 @@ Spaced Linux Welcome is the native first-run application installer for Spaced
 Linux. It installs SpacedBazaar and a curated set of user Flatpaks from
 Flathub and the signed Spaced GitHub repository after the OS is installed.
 
-![Spaced Linux Welcome 0.1.9 showing post-install apps from Flathub and Spaced GitHub](screenshots/welcome-0.1.8.png)
+![Spaced Linux Welcome 0.1.10 showing post-install apps from Flathub and Spaced GitHub](screenshots/welcome-0.1.8.png)
 
 The UI always names the application and source currently being installed. Its
 **Details** pane streams remote setup, Flatpak, retry, and failure output while
@@ -14,6 +14,15 @@ The **Help & Apps** page starts with task-oriented recommendations for video,
 photos, audio, email, coding, emulation, streaming, and games. Choosing one
 launches its exact `appstream://` page in SpacedBazaar; the
 user still confirms any installation in Bazaar.
+
+**Open SpacedBazaar** installs just the app store when it is missing, then opens
+it. Help & Apps links do the same and retain the requested application page.
+The installer configures Flathub for runtime dependencies even when no suggested
+Flathub applications are selected.
+
+Help & Apps also includes offline guides for Android USB transfers, iPhone/iPad
+pairing and shared documents, authenticated Windows/NAS shares, and starting
+creative projects. Each guide includes troubleshooting and an upstream reference.
 
 ## Catalog
 
@@ -46,6 +55,7 @@ spaced-welcome-install --list --json
 spaced-welcome-install --install suggested
 spaced-welcome-install --install cards-with-cats --events
 spaced-welcome
+spaced-welcome --page help
 ```
 
 `--events` emits newline-delimited JSON for the GTK UI and other front ends.
@@ -59,7 +69,7 @@ make check
 make deb
 ```
 
-The package artifact is exactly `dist/spaced-welcome_0.1.9_all.deb`.
+The package artifact is exactly `dist/spaced-welcome_0.1.10_all.deb`.
 
 The behavioral test harness can inject commands and paths without weakening
 production validation:

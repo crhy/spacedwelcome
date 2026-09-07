@@ -141,6 +141,8 @@ class Installer:
         remotes = self._run_capture(
             [self.flatpak, "remotes", "--user", "--columns=name,url"], app=app
         )
+        if remotes.returncode != 0:
+            raise InstallError("Could not inspect this user's Flatpak remotes")
         if remotes.returncode == 0:
             for line in remotes.output.splitlines():
                 remote_name, separator, remote_url = line.partition("\t")
@@ -160,6 +162,7 @@ class Installer:
                 self.flatpak,
                 "remote-add",
                 "--user",
+                "--noninteractive",
                 "--if-not-exists",
                 name,
                 descriptor,
@@ -173,7 +176,7 @@ class Installer:
         command = [self.flatpak, "info"]
         if user_only:
             command.append("--user")
-        command.append(app.app_id)
+        command.extend([app.app_id, app.branch])
         result = self._run_capture(command, timeout=30, app=app)
         return result.returncode == 0
 
@@ -258,6 +261,10 @@ class Installer:
             if not BRANCH_RE.fullmatch(app.branch):
                 raise InstallError(f"Unsafe Flatpak branch configured for {app.name}: {app.branch}")
             remote = "spaced-github" if app.source_type == "spaced-github" else "flathub"
+            # First-party apps depend on Flathub runtimes. A Bazaar-only install
+            # must work on a fresh account with neither user remote configured.
+            if remote != "flathub":
+                self.ensure_remote("flathub", app)
             self.ensure_remote(remote, app)
             if not self._install_command(app, remote):
                 raise InstallError(
@@ -286,7 +293,10 @@ class Installer:
                 succeeded += 1
             else:
                 failed.append(app)
-        self.refresh_menus()
+        try:
+            self.refresh_menus()
+        except (InstallError, OSError) as error:
+            self.emit("detail", message=f"Applications are installed; menu refresh failed: {error}")
         if failed:
             names = ", ".join(app.name for app in failed)
             self.emit(
