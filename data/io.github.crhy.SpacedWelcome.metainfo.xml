@@ -14,6 +14,7 @@
   </description>
   <launchable type="desktop-id">io.github.crhy.SpacedWelcome.desktop</launchable>
   <url type="homepage">https://github.com/crhy/spacedwelcome</url>
+  <url type="help">https://spacedlinux.com/#help</url>
   <developer id="io.github.crhy"><name>Spaced Linux Team</name></developer>
   <content_rating type="oars-1.1"/>
   <screenshots>
@@ -23,6 +24,9 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.1.11" date="2026-09-07">
+      <description><p>Adds direct Discord and Telegram community support links to setup and Help and Apps.</p></description>
+    </release>
     <release version="0.1.10" date="2026-09-07">
       <description>
         <p>Installs SpacedBazaar on demand, configures its runtime source on fresh accounts, and opens Help and Apps directly from the desktop About shortcut.</p>

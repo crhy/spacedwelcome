@@ -10,6 +10,11 @@ from . import __version__
 
 HOMEPAGE_URL = "https://spacedlinux.com"
 HOMEPAGE_LABEL = "SpacedLinux.com"
+HELP_URL = "https://spacedlinux.com/#help"
+COMMUNITY_LINKS = (
+    ("Discord", "https://discord.gg/BMW9Y6NB3y"),
+    ("Telegram", "https://t.me/+pjmFzHo-i9A2ZWY5"),
+)
 
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 

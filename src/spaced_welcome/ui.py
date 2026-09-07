@@ -17,7 +17,7 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk  # noqa: E402
 
-from .about import HOMEPAGE_LABEL, HOMEPAGE_URL, display_version
+from .about import COMMUNITY_LINKS, HELP_URL, HOMEPAGE_LABEL, HOMEPAGE_URL, display_version
 from .catalog import App, CatalogError, load_catalog
 from .help import BAZAAR_APP_ID, GUIDES, SUGGESTIONS, AppSuggestion, bazaar_command
 from .progress import ProgressModel
@@ -200,6 +200,8 @@ class WelcomeWindow(Gtk.Window):
         about_box.pack_start(self.version_label, False, False, 0)
         self.homepage_link = Gtk.LinkButton(uri=HOMEPAGE_URL, label=HOMEPAGE_LABEL)
         about_box.pack_start(self.homepage_link, False, False, 0)
+        for label, url in COMMUNITY_LINKS:
+            about_box.pack_start(Gtk.LinkButton(uri=url, label=label), False, False, 0)
         setup_page.pack_start(about_box, False, False, 0)
 
         self.details_expander = Gtk.Expander(label="Details")
@@ -246,6 +248,13 @@ class WelcomeWindow(Gtk.Window):
         scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         content.set_border_width(4)
+
+        community = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        community.pack_start(Gtk.Label(label="Get help from the Spaced Linux community", xalign=0), True, True, 0)
+        community.pack_start(Gtk.LinkButton(uri=HELP_URL, label="Online Help"), False, False, 0)
+        for label, url in COMMUNITY_LINKS:
+            community.pack_start(Gtk.LinkButton(uri=url, label=label), False, False, 0)
+        content.pack_start(community, False, False, 0)
 
         desktop_heading = Gtk.Label(label="Desktop quick start", xalign=0)
         desktop_heading.get_style_context().add_class("choice-title")
