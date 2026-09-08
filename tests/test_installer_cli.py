@@ -154,9 +154,12 @@ class InstallerCliTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         additions = [command for command in self.commands() if command[0] == "remote-add"]
         self.assertEqual([item[-2] for item in additions], ["flathub", "spaced-github"])
-        self.assertEqual(
+        # Installed Spaced hosts use the shipped key-bearing descriptor;
+        # other hosts fetch the same canonical descriptor over HTTPS.
+        self.assertIn(
             additions[1][-1],
-            "https://crhy.github.io/spacedbazaar/spaced-github.flatpakrepo",
+            ("https://crhy.github.io/spacedbazaar/spaced-github.flatpakrepo",
+             "/usr/share/flatpak/remotes.d/spaced-github.flatpakrepo"),
         )
 
     def test_flathub_app_uses_stable_branch(self):
