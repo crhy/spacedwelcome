@@ -6,7 +6,7 @@ Spaced Linux Welcome is the native first-run application installer for Spaced
 Linux. It installs SpacedBazaar and a curated set of user Flatpaks from
 Flathub and the signed Spaced GitHub repository after the OS is installed.
 
-![Spaced Linux Welcome 0.1.11 showing post-install apps from Flathub and Spaced GitHub](screenshots/welcome-0.1.8.png)
+![Spaced Linux Welcome 0.1.12 showing post-install apps from Flathub and Spaced GitHub](screenshots/welcome-0.1.8.png)
 
 The UI always names the application and source currently being installed. Its
 **Details** pane streams remote setup, Flatpak, retry, and failure output while
@@ -71,7 +71,7 @@ make check
 make deb
 ```
 
-The package artifact is exactly `dist/spaced-welcome_0.1.11_all.deb`.
+The package artifact is exactly `dist/spaced-welcome_0.1.12_all.deb`.
 
 The behavioral test harness can inject commands and paths without weakening
 production validation:

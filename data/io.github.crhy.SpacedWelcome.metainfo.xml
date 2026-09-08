@@ -24,6 +24,9 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.1.12" date="2026-09-08">
+      <description><p>Keeps Welcome open until application installation finishes and cleans up its installer process group on forced window destruction.</p></description>
+    </release>
     <release version="0.1.11" date="2026-09-07">
       <description><p>Adds direct Discord and Telegram community support links to setup and Help and Apps.</p></description>
     </release>

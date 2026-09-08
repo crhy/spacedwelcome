@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import signal
 import sys
 import threading
 from typing import Any
@@ -104,7 +105,7 @@ class WelcomeWindow(Gtk.Window):
 
         # Installed builds find these through hicolor normally. Add the source
         # tree while developing so screenshots and tests resolve the same art.
-        source_icons = Path(__file__).resolve().parents[2] / "data/icons/hicolor"
+        source_icons = Path(__file__).resolve().parents[2] / "data/icons"
         if source_icons.is_dir():
             Gtk.IconTheme.get_default().append_search_path(str(source_icons))
 
@@ -157,7 +158,7 @@ class WelcomeWindow(Gtk.Window):
         self.bazaar_button.connect("clicked", self._open_bazaar)
         actions.pack_start(self.bazaar_button, True, True, 0)
         self.nvidia_button = self._choice(
-            "video-display", "NVIDIA Drivers", "Open the graphics driver setup"
+            "video-display", "Video Drivers", "Check graphics and manage AMD or NVIDIA drivers"
         )
         self.nvidia_button.connect("clicked", self._open_nvidia_installer)
         actions.pack_start(self.nvidia_button, True, True, 0)
@@ -220,6 +221,7 @@ class WelcomeWindow(Gtk.Window):
 
         self.pages.add_titled(self._build_help_page(), "help", "Help & Apps")
 
+        self.connect("delete-event", self._on_delete)
         self.connect("destroy", self._on_destroy)
 
     @staticmethod
@@ -392,6 +394,7 @@ class WelcomeWindow(Gtk.Window):
                 text=True,
                 bufsize=1,
                 env=environment,
+                start_new_session=True,
             )
             assert self.install_process.stdout is not None
             for raw_line in self.install_process.stdout:
@@ -518,11 +521,31 @@ class WelcomeWindow(Gtk.Window):
         try:
             subprocess.Popen([command], start_new_session=True)
         except OSError as error:
-            self.status.set_text(f"Could not open NVIDIA setup: {error}")
+            self.status.set_text(f"Could not open Video Drivers: {error}")
+
+    def _on_delete(self, *_args: object) -> bool:
+        if self.running:
+            self.status.set_text("Please wait for the current installation to finish before closing Welcome.")
+        return self.running
 
     def _on_destroy(self, _window: Gtk.Window) -> None:
-        if self.install_process is not None and self.install_process.poll() is None:
-            self.install_process.terminate()
+        # Normal window-close requests are blocked while work is active. If
+        # the window is destroyed explicitly, stop the owned process group so
+        # Flatpak children cannot outlive their installer and lose reporting.
+        process = self.install_process
+        if process is not None and process.poll() is None:
+            try:
+                os.killpg(process.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                process.wait()
         Gtk.main_quit()
 
 

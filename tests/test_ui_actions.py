@@ -20,7 +20,7 @@ spec = importlib.util.spec_from_file_location(
     Path(__file__).parents[1] / "src/spaced_welcome/ui.py",
 )
 ui = importlib.util.module_from_spec(spec)
-gtk = types.SimpleNamespace(Box=object, Window=object, main=MagicMock())
+gtk = types.SimpleNamespace(Box=object, Window=object, main=MagicMock(), main_quit=MagicMock())
 glib = types.SimpleNamespace(idle_add=MagicMock())
 gi = types.SimpleNamespace(require_version=lambda *_args: None)
 repository = types.SimpleNamespace(Gtk=gtk, GLib=glib)
@@ -96,6 +96,36 @@ class UiActionTests(unittest.TestCase):
         with patch.object(ui, "WelcomeWindow", return_value=window):
             self.assertEqual(ui.main(["--page", "help"]), 0)
         window.pages.set_visible_child_name.assert_called_once_with("help")
+
+    def test_busy_close_keeps_installer_running(self):
+        window = self.window()
+        window.running = True
+        self.assertTrue(ui.WelcomeWindow._on_delete(window))
+        self.assertIn("finish before closing", window.status.set_text.call_args.args[0])
+        window.install_process.terminate.assert_not_called()
+        window.destroy.assert_not_called()
+        window.running = False
+        self.assertFalse(ui.WelcomeWindow._on_delete(window))
+
+    def test_forced_destroy_reaps_owned_installer_group(self):
+        window = self.window()
+        window.install_process.poll.return_value = None
+        window.install_process.pid = 12345
+        with patch.object(ui.os, "killpg") as kill:
+            ui.WelcomeWindow._on_destroy(window, window)
+        kill.assert_called_once_with(12345, ui.signal.SIGTERM)
+        window.install_process.wait.assert_called_once_with(timeout=5)
+
+    def test_installer_has_its_own_process_group(self):
+        window = self.window()
+        window._installer_command.return_value = "spaced-welcome-install"
+        process = MagicMock()
+        process.stdout = iter([])
+        process.wait.return_value = 0
+        with patch.object(ui.subprocess, "Popen", return_value=process) as popen:
+            ui.WelcomeWindow._install_worker(window, "suggested")
+        self.assertTrue(popen.call_args.kwargs["start_new_session"])
+        self.assertIsNone(window.install_process)
 
 
 if __name__ == "__main__":
