@@ -6,12 +6,14 @@ on:
 
 jobs:
   package:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Verify release version
         run: test "$GITHUB_REF_NAME" = "v$(cat VERSION)"
+      - name: Set deterministic package timestamp
+        run: echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
       - name: Install validation tools
         run: |
           sudo apt-get update
@@ -23,7 +25,7 @@ jobs:
           cd dist
           sha256sum "spaced-welcome_$(cat ../VERSION)_all.deb" > "spaced-welcome_$(cat ../VERSION)_all.deb.sha256"
       - name: Upload Debian artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: spaced-welcome-deb
           path: |
@@ -31,15 +33,15 @@ jobs:
             dist/spaced-welcome_*_all.deb.sha256
 
   flatpak:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50@sha256:1b74b57fa75e61b217e90072aec7ba7d618613fea982106cb3e813c002662162
       options: --privileged
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Build Flatpak repository
-        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        uses: flatpak/flatpak-github-actions/flatpak-builder@79327416609af08178ad73b352877e51450790b3
         with:
           manifest-path: flatpak/io.github.crhy.SpacedWelcome.yml
           branch: master
@@ -54,7 +56,7 @@ jobs:
           --repo-url=https://crhy.github.io/spacedbazaar/flatpak-repo/
           --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo
           spaced-welcome-repo
-          SpacedWelcome-x86_64.flatpak
+          "SpacedWelcome-$(cat VERSION)-x86_64.flatpak"
           io.github.crhy.SpacedWelcome
           master
       - name: Verify exported metadata and icon
@@ -65,7 +67,7 @@ jobs:
           repo="$probe/repo"
           checkout="$probe/checkout"
           ostree init --repo="$repo" --mode=archive-z2
-          flatpak build-import-bundle --no-update-summary "$repo" SpacedWelcome-x86_64.flatpak
+          flatpak build-import-bundle --no-update-summary "$repo" "SpacedWelcome-$(cat VERSION)-x86_64.flatpak"
           ref=app/io.github.crhy.SpacedWelcome/x86_64/master
           ostree --repo="$repo" refs | grep -Fx "$ref"
           ostree --repo="$repo" checkout --user-mode "$ref" "$checkout"
@@ -73,28 +75,52 @@ jobs:
           test -s "$checkout/export/share/icons/hicolor/512x512/apps/io.github.crhy.SpacedWelcome.png"
           test -s "$checkout/files/share/icons/hicolor/scalable/apps/io.github.crhy.SpacedBazaar.svg"
       - name: Upload Flatpak artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: spaced-welcome-flatpak
-          path: SpacedWelcome-x86_64.flatpak
+          path: SpacedWelcome-*-x86_64.flatpak
           if-no-files-found: error
           compression-level: 0
 
   release:
     needs: [package, flatpak]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
       - name: Download release artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           pattern: spaced-welcome-*
           path: release
           merge-multiple: true
+      - name: Refuse changes to published artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          probe=$(mktemp -d)
+          if ! gh api "repos/$GITHUB_REPOSITORY/releases/tags/$GITHUB_REF_NAME" > "$probe/release.json" 2> "$probe/error"; then
+            if grep -q 'HTTP 404' "$probe/error"; then exit 0; fi
+            cat "$probe/error" >&2
+            exit 1
+          fi
+          for artifact in release/*; do
+            name=$(basename "$artifact")
+            if jq -e --arg name "$name" '.assets[] | select(.name == $name)' "$probe/release.json" > /dev/null; then
+              gh release download "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --pattern "$name" --dir "$probe"
+              if ! cmp --silent "$artifact" "$probe/$name"; then
+                echo "Existing release asset differs: $name. Publish a new version instead." >&2
+                exit 1
+              fi
+            fi
+          done
       - name: Publish GitHub release assets
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
         with:
           name: Spaced Linux Welcome ${{ github.ref_name }}
           generate_release_notes: true
+          overwrite_files: false
+          fail_on_unmatched_files: true
           files: release/*
