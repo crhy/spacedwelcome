@@ -33,7 +33,6 @@ class CatalogTests(unittest.TestCase):
             "voice2text": "io.github.crhy.voice2textai",
             "cards-with-cats": "io.github.crhy.CardsWithCats",
             "brutal-chess": "io.github.crhy.BrutalChess",
-            "spaced-update": "org.spacedlinux.SpacedUpdate",
         }
         self.assertEqual({key: catalog.get(key).app_id for key in expected}, expected)
         for key in expected:
@@ -45,10 +44,9 @@ class CatalogTests(unittest.TestCase):
             ["spacedbazaar", "voice2text", "cards-with-cats", "brutal-chess"],
         )
         # Spaced Linux ships Spaced Update natively and its menu entry runs
-        # that copy. Installing the Flatpak too left two identically named
-        # launchers, so it stays in the catalog but is never suggested.
-        self.assertFalse(catalog.get("spaced-update").suggested)
-        self.assertFalse(catalog.get("spaced-update").preinstalled)
+        # that copy, so the Flatpak was retired rather than offered here.
+        with self.assertRaises(CatalogError):
+            catalog.get("spaced-update")
         for key in ("audacious", "brave", "libreoffice", "vlc"):
             self.assertEqual(catalog.get(key).branch, "stable")
 

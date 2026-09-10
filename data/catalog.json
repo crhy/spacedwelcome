@@ -50,18 +50,6 @@
       }
     },
     {
-      "key": "spaced-update",
-      "name": "Spaced Update",
-      "app_id": "org.spacedlinux.SpacedUpdate",
-      "branch": "stable",
-      "description": "Update Spaced Linux and Flatpak applications together.",
-      "preinstalled": false,
-      "suggested": false,
-      "source": {
-        "type": "spaced-github"
-      }
-    },
-    {
       "key": "audacious",
       "name": "Audacious",
       "app_id": "org.atheme.audacious",
@@ -69,7 +57,9 @@
       "description": "A lightweight music player.",
       "preinstalled": false,
       "suggested": true,
-      "source": {"type": "flathub"}
+      "source": {
+        "type": "flathub"
+      }
     },
     {
       "key": "brave",
@@ -79,7 +69,9 @@
       "description": "A privacy-focused web browser.",
       "preinstalled": false,
       "suggested": true,
-      "source": {"type": "flathub"}
+      "source": {
+        "type": "flathub"
+      }
     },
     {
       "key": "libreoffice",
@@ -89,7 +81,9 @@
       "description": "Writer, Calc, Impress, and the LibreOffice suite.",
       "preinstalled": false,
       "suggested": true,
-      "source": {"type": "flathub"}
+      "source": {
+        "type": "flathub"
+      }
     },
     {
       "key": "vlc",
@@ -99,7 +93,9 @@
       "description": "A versatile video and audio player.",
       "preinstalled": false,
       "suggested": true,
-      "source": {"type": "flathub"}
+      "source": {
+        "type": "flathub"
+      }
     }
   ]
 }
