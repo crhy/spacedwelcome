@@ -6,7 +6,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from spaced_welcome.catalog import CatalogError, load_catalog
+from spaced_welcome.catalog import SOURCE_ROOT_CATALOG, CatalogError, load_catalog
 
 
 class CatalogTests(unittest.TestCase):
@@ -22,7 +22,12 @@ class CatalogTests(unittest.TestCase):
                         load_catalog(path)
 
     def test_verified_catalog_ids_and_sources(self):
-        catalog = load_catalog()
+        # Load the catalog in this checkout explicitly. Without a path,
+        # load_catalog() prefers /usr/share/spaced-welcome/catalog.json when
+        # Welcome is installed, so this test would silently check the packaged
+        # data instead of the change under test and pass on a developer's
+        # machine while failing in CI.
+        catalog = load_catalog(SOURCE_ROOT_CATALOG)
         expected = {
             "spacedbazaar": "io.github.crhy.SpacedBazaar",
             "voice2text": "io.github.crhy.voice2textai",
@@ -37,8 +42,13 @@ class CatalogTests(unittest.TestCase):
         self.assertTrue(catalog.get("spacedbazaar").suggested)
         self.assertEqual(
             [app.key for app in catalog.suggested() if app.source_type == "spaced-github"],
-            ["spacedbazaar", "voice2text", "cards-with-cats", "brutal-chess", "spaced-update"],
+            ["spacedbazaar", "voice2text", "cards-with-cats", "brutal-chess"],
         )
+        # Spaced Linux ships Spaced Update natively and its menu entry runs
+        # that copy. Installing the Flatpak too left two identically named
+        # launchers, so it stays in the catalog but is never suggested.
+        self.assertFalse(catalog.get("spaced-update").suggested)
+        self.assertFalse(catalog.get("spaced-update").preinstalled)
         for key in ("audacious", "brave", "libreoffice", "vlc"):
             self.assertEqual(catalog.get(key).branch, "stable")
 
