@@ -174,6 +174,7 @@ class AiSetup:
         self.callback = callback or (lambda _event: None)
         self.ollama = os.environ.get("SPACED_WELCOME_OLLAMA", "ollama")
         self.arecord = os.environ.get("SPACED_WELCOME_ARECORD", "arecord")
+        self.parecord = os.environ.get("SPACED_WELCOME_PARECORD", "parecord")
         self.lpinfo = os.environ.get("SPACED_WELCOME_LPINFO", "lpinfo")
         self.sound_settings = os.environ.get(
             "SPACED_WELCOME_SOUND_SETTINGS", "mate-volume-control"
@@ -231,12 +232,45 @@ class AiSetup:
     # -- Microphone and sound ------------------------------------------------
 
     def test_microphone(self, seconds: int = 3) -> MicrophoneResult:
-        if not shutil.which(self.arecord):
-            message = "arecord is not installed; cannot test the microphone"
+        recorder = self._recorder()
+        if recorder is None:
+            message = (
+                "Neither arecord nor parecord is installed; cannot test the "
+                "microphone. Install alsa-utils or pulseaudio-utils, then try again."
+            )
             self.emit("task-failure", message=message)
             return MicrophoneResult(ok=False, peak_level=0.0, message=message)
         self.emit("task-start", message=f"Recording {seconds}s from the default microphone…")
         recording = Path(f"/tmp/spaced-welcome-mic-test-{os.getpid()}.wav")
+        failure = recorder(seconds, recording)
+        if failure is not None:
+            recording.unlink(missing_ok=True)
+            self.emit("task-failure", message=failure)
+            return MicrophoneResult(ok=False, peak_level=0.0, message=failure)
+        try:
+            peak_level = self._peak_level(recording)
+        finally:
+            recording.unlink(missing_ok=True)
+        if peak_level < 0.01:
+            message = (
+                "No signal was detected. Check that the correct microphone is "
+                "selected and unmuted in Sound Settings, then try again."
+            )
+            self.emit("task-failure", message=message)
+            return MicrophoneResult(ok=False, peak_level=peak_level, message=message)
+        message = f"Microphone is working (peak level {peak_level:.0%})"
+        self.emit("task-success", message=message)
+        return MicrophoneResult(ok=True, peak_level=peak_level, message=message)
+
+    def _recorder(self) -> Callable[[int, Path], str | None] | None:
+        """Pick a recording backend: ALSA first, then PulseAudio/PipeWire."""
+        if shutil.which(self.arecord):
+            return self._record_with_arecord
+        if shutil.which(self.parecord):
+            return self._record_with_parecord
+        return None
+
+    def _record_with_arecord(self, seconds: int, recording: Path) -> str | None:
         try:
             result = subprocess.run(
                 [
@@ -259,27 +293,46 @@ class AiSetup:
                 timeout=seconds + 15,
             )
         except (OSError, subprocess.TimeoutExpired) as error:
-            message = f"Could not record from the microphone: {error}"
-            self.emit("task-failure", message=message)
-            return MicrophoneResult(ok=False, peak_level=0.0, message=message)
+            return f"Could not record from the microphone: {error}"
         if result.returncode != 0 or not recording.exists():
-            message = f"Recording failed: {result.stdout.strip() or 'unknown error'}"
-            self.emit("task-failure", message=message)
-            return MicrophoneResult(ok=False, peak_level=0.0, message=message)
+            return f"Recording failed: {result.stdout.strip() or 'unknown error'}"
+        return None
+
+    def _record_with_parecord(self, seconds: int, recording: Path) -> str | None:
+        # parecord has no duration flag, so it records until it is stopped.
+        # SIGTERM (not SIGKILL) is what lets it finalize the WAV header, so the
+        # recording stays readable; running the full duration is the good path.
         try:
-            peak_level = self._peak_level(recording)
-        finally:
-            recording.unlink(missing_ok=True)
-        if peak_level < 0.01:
-            message = (
-                "No signal was detected. Check that the correct microphone is "
-                "selected and unmuted in Sound Settings, then try again."
+            process = subprocess.Popen(
+                [
+                    self.parecord,
+                    "--file-format=wav",
+                    "--format=s16le",
+                    "--rate=16000",
+                    "--channels=1",
+                    str(recording),
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
             )
-            self.emit("task-failure", message=message)
-            return MicrophoneResult(ok=False, peak_level=peak_level, message=message)
-        message = f"Microphone is working (peak level {peak_level:.0%})"
-        self.emit("task-success", message=message)
-        return MicrophoneResult(ok=True, peak_level=peak_level, message=message)
+        except OSError as error:
+            return f"Could not record from the microphone: {error}"
+        try:
+            output, _ = process.communicate(timeout=seconds)
+        except subprocess.TimeoutExpired:
+            process.terminate()
+            try:
+                process.communicate(timeout=15)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.communicate()
+        else:
+            # Exiting early means it never recorded for the requested time.
+            return f"Recording failed: {output.strip() or 'unknown error'}"
+        if not recording.exists():
+            return "Recording failed: no audio was captured"
+        return None
 
     @staticmethod
     def _peak_level(recording: Path) -> float:

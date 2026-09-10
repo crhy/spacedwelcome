@@ -136,12 +136,50 @@ class SubprocessHelperTests(unittest.TestCase):
         self.assertFalse(result.ok)
         self.assertIn("No signal", result.message)
 
-    def test_microphone_is_reported_missing_without_arecord(self):
+    def test_microphone_is_reported_missing_without_any_recorder(self):
+        setup = AiSetup()
+        setup.arecord = "arecord-does-not-exist"
+        setup.parecord = "parecord-does-not-exist"
+        result = setup.test_microphone(seconds=1)
+        self.assertFalse(result.ok)
+        self.assertIn("Neither arecord nor parecord is installed", result.message)
+
+    def test_microphone_falls_back_to_parecord_without_arecord(self):
+        self._executable(
+            self.fake_bin / "parecord",
+            r"""
+            #!/usr/bin/python3
+            import sys, time, wave
+            path = sys.argv[-1]
+            with wave.open(path, 'wb') as handle:
+                handle.setnchannels(1)
+                handle.setsampwidth(2)
+                handle.setframerate(16000)
+                handle.writeframes((18000).to_bytes(2, 'little', signed=True) * 100)
+            # parecord has no duration flag; it runs until it is stopped.
+            time.sleep(30)
+            """,
+        )
+        setup = AiSetup()
+        setup.arecord = "arecord-does-not-exist"
+        result = setup.test_microphone(seconds=1)
+        self.assertTrue(result.ok, result.message)
+        self.assertAlmostEqual(result.peak_level, 18000 / 32768, places=3)
+
+    def test_microphone_reports_parecord_exiting_early(self):
+        self._executable(
+            self.fake_bin / "parecord",
+            r"""
+            #!/bin/sh
+            echo "connection refused" >&2
+            exit 1
+            """,
+        )
         setup = AiSetup()
         setup.arecord = "arecord-does-not-exist"
         result = setup.test_microphone(seconds=1)
         self.assertFalse(result.ok)
-        self.assertIn("not installed", result.message)
+        self.assertIn("connection refused", result.message)
 
     def test_ollama_missing_reports_the_install_command(self):
         events = []
