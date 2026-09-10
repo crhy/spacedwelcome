@@ -24,6 +24,9 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.1.13" date="2026-09-10">
+      <description><p>No longer installs the Spaced Update Flatpak alongside the copy Spaced Linux already ships, which left two identical Spaced Update entries in the menu.</p></description>
+    </release>
     <release version="0.1.12" date="2026-09-08">
       <description><p>Keeps Welcome open until application installation finishes and cleans up its installer process group on forced window destruction.</p></description>
     </release>

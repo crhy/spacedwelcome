@@ -56,7 +56,7 @@
       "branch": "stable",
       "description": "Update Spaced Linux and Flatpak applications together.",
       "preinstalled": false,
-      "suggested": true,
+      "suggested": false,
       "source": {
         "type": "spaced-github"
       }
