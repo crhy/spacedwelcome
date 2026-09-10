@@ -154,6 +154,40 @@ class AiSetupUiActionTests(unittest.TestCase):
         on_result(2, None)
         self.assertIn("Printer Settings", window.ai_status.set_text.call_args.args[0])
 
+    def test_open_sound_settings_confirms_success(self):
+        window = self.window()
+        ui.WelcomeWindow._open_sound_settings(window, MagicMock())
+        on_result = window._start_ai_task.call_args.args[1]
+        on_result(0, None)
+        self.assertEqual(window.ai_status.set_text.call_args.args[0], "Opened Sound Settings.")
+
+    def test_eventless_task_does_not_leave_the_status_working(self):
+        window = self.window()
+        ui.WelcomeWindow._ai_task_finished(window, 0, None, None)
+        self.assertEqual(window.ai_status.set_text.call_args.args[0], "Done")
+
+    def test_eventless_failure_is_reported(self):
+        window = self.window()
+        ui.WelcomeWindow._ai_task_finished(window, 1, None, None)
+        self.assertEqual(window.ai_status.set_text.call_args.args[0], "That did not work")
+
+    def test_a_task_that_reported_progress_keeps_its_last_message(self):
+        window = self.window()
+        window.ai_model.apply({"event": "task-success", "message": "Microphone is working"})
+        ui.WelcomeWindow._ai_task_finished(window, 0, None, None)
+        window.ai_status.set_text.assert_not_called()
+
+    def test_peripherals_result_summarises_what_was_detected(self):
+        window = self.window()
+        ui.WelcomeWindow._check_peripherals(window, MagicMock())
+        on_result = window._start_ai_task.call_args.args[1]
+        on_result(0, [{"name": "Webcam", "detail": "d", "present": True},
+                      {"name": "Battery", "detail": "n", "present": False}])
+        self.assertEqual(
+            window.ai_status.set_text.call_args.args[0],
+            "Checked 2 peripherals, 1 detected",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

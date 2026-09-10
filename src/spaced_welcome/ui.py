@@ -737,6 +737,12 @@ class WelcomeWindow(Gtk.Window):
 
     def _ai_task_finished(self, returncode: int, result_payload: Any, on_result) -> bool:
         self._set_ai_running(False)
+        # Checking peripherals and opening a settings panel both finish without
+        # emitting a single progress event, so nothing would ever replace the
+        # "Working…" the task set on its way in. on_result runs afterwards and
+        # can still say something more specific.
+        if not self.ai_model.details:
+            self.ai_status.set_text("Done" if returncode == 0 else "That did not work")
         if on_result is not None:
             on_result(returncode, result_payload)
         return False
@@ -767,8 +773,11 @@ class WelcomeWindow(Gtk.Window):
 
     def _open_sound_settings(self, _button: Gtk.Button) -> None:
         def on_result(returncode: int, _payload: Any) -> None:
-            if returncode != 0:
-                self.ai_status.set_text("Could not open Sound Settings.")
+            self.ai_status.set_text(
+                "Opened Sound Settings."
+                if returncode == 0
+                else "Could not open Sound Settings."
+            )
 
         self._start_ai_task(["--open-sound-settings", "--events"], on_result)
 
@@ -784,6 +793,8 @@ class WelcomeWindow(Gtk.Window):
                 label.get_style_context().add_class("choice-detail")
                 self.peripherals_box.pack_start(label, False, False, 0)
             self.peripherals_box.show_all()
+            detected = sum(1 for row in payload if row.get("present"))
+            self.ai_status.set_text(f"Checked {len(payload)} peripherals, {detected} detected")
 
         self._start_ai_task(["--check-peripherals", "--json"], on_result)
 
@@ -809,8 +820,11 @@ class WelcomeWindow(Gtk.Window):
 
     def _open_printer_settings(self, _button: Gtk.Button) -> None:
         def on_result(returncode: int, _payload: Any) -> None:
-            if returncode != 0:
-                self.ai_status.set_text("Could not open Printer Settings.")
+            self.ai_status.set_text(
+                "Opened Printer Settings."
+                if returncode == 0
+                else "Could not open Printer Settings."
+            )
 
         self._start_ai_task(["--open-printer-settings", "--events"], on_result)
 
