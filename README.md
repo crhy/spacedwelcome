@@ -26,6 +26,16 @@ Help & Apps also includes offline guides for Android USB transfers, iPhone/iPad
 pairing and shared documents, authenticated Windows/NAS shares, and starting
 creative projects. Each guide includes troubleshooting and an upstream reference.
 
+The **AI Setup** page detects the installed RAM and any NVIDIA GPU, recommends
+a local Ollama model sized for that hardware, and downloads it with `ollama
+pull` when Ollama is already installed (otherwise it shows the official
+install command; Welcome never pipes a remote script to a shell on its own).
+The same page records a few seconds of microphone audio and reports whether a
+signal was detected, opens Sound Settings, checks for a webcam, Bluetooth,
+battery, and Wi-Fi adapter, searches the local network for CUPS-discoverable
+printers, and links short guides for continuing to set up Spaced Linux
+(themes, snapshots, Compiz, and graphics drivers).
+
 ## Catalog
 
 The structured catalog lives in `data/catalog.json`. Version 1 contains these
@@ -58,11 +68,25 @@ spaced-welcome-install --install suggested
 spaced-welcome-install --install cards-with-cats --events
 spaced-welcome
 spaced-welcome --page help
+spaced-welcome --page ai-setup
 ```
 
 `--events` emits newline-delimited JSON for the GTK UI and other front ends.
 One failed application does not prevent the remaining suggestions from being
 attempted.
+
+The AI Setup page is backed by its own CLI:
+
+```sh
+spaced-welcome-ai-setup --detect-hardware --json
+spaced-welcome-ai-setup --recommend-model
+spaced-welcome-ai-setup --install-model qwen2:7b --events
+spaced-welcome-ai-setup --test-microphone --json
+spaced-welcome-ai-setup --open-sound-settings
+spaced-welcome-ai-setup --check-peripherals --json
+spaced-welcome-ai-setup --find-printers --json
+spaced-welcome-ai-setup --open-printer-settings
+```
 
 ## Development
 
@@ -71,7 +95,7 @@ make check
 make deb
 ```
 
-The package artifact is exactly `dist/spaced-welcome_0.1.12_all.deb`.
+The package artifact is exactly `dist/spaced-welcome_$(cat VERSION)_all.deb`.
 
 The behavioral test harness can inject commands and paths without weakening
 production validation:
@@ -81,6 +105,11 @@ production validation:
 - `SPACED_WELCOME_ATTEMPTS`
 - `SPACED_WELCOME_RETRY_DELAY`
 - `SPACED_WELCOME_INSTALLER`
+- `SPACED_WELCOME_AI_SETUP`, `SPACED_WELCOME_OLLAMA`, `SPACED_WELCOME_ARECORD`,
+  `SPACED_WELCOME_LPINFO`, `SPACED_WELCOME_SOUND_SETTINGS`,
+  `SPACED_WELCOME_PRINTER_SETTINGS`, `SPACED_WELCOME_MEMINFO`,
+  `SPACED_WELCOME_NVIDIA_SMI`, `SPACED_WELCOME_DEV_ROOT`,
+  `SPACED_WELCOME_SYS_ROOT`
 
 ## Packaging and OS integration
 

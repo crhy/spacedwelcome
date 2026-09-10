@@ -34,6 +34,7 @@ install -m 0755 "$root/packaging/debian/postinst" "$stage/DEBIAN/postinst"
 install -m 0755 "$root/packaging/debian/prerm" "$stage/DEBIAN/prerm"
 install -m 0755 "$root/bin/spaced-welcome" "$stage/usr/bin/spaced-welcome"
 install -m 0755 "$root/bin/spaced-welcome-install" "$stage/usr/bin/spaced-welcome-install"
+install -m 0755 "$root/bin/spaced-welcome-ai-setup" "$stage/usr/bin/spaced-welcome-ai-setup"
 install -m 0644 "$root"/src/spaced_welcome/*.py \
     "$stage/usr/lib/python3/dist-packages/spaced_welcome/"
 install -m 0644 "$root/data/catalog.json" "$stage/usr/share/spaced-welcome/catalog.json"
@@ -57,7 +58,8 @@ install -m 0644 "$root/README.md" "$stage/usr/share/doc/spaced-welcome/README.md
 find "$stage" -type d -exec chmod 0755 {} +
 find "$stage" -type f ! -path "$stage/DEBIAN/postinst" \
     ! -path "$stage/DEBIAN/prerm" ! -path "$stage/usr/bin/spaced-welcome" \
-    ! -path "$stage/usr/bin/spaced-welcome-install" -exec chmod 0644 {} +
+    ! -path "$stage/usr/bin/spaced-welcome-install" \
+    ! -path "$stage/usr/bin/spaced-welcome-ai-setup" -exec chmod 0644 {} +
 
 mkdir -p "$output_dir"
 rm -f -- "$artifact"

@@ -24,6 +24,9 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.1.14" date="2026-09-10">
+      <description><p>Adds an AI Setup page that recommends and installs a local Ollama model sized for the detected hardware, tests the microphone, opens Sound Settings, checks common peripherals, finds network printers, and links guides for continuing to set up Spaced Linux.</p></description>
+    </release>
     <release version="0.1.13" date="2026-09-10">
       <description><p>No longer installs the Spaced Update Flatpak alongside the copy Spaced Linux already ships, which left two identical Spaced Update entries in the menu.</p></description>
     </release>

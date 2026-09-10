@@ -19,6 +19,7 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk  # noqa: E402
 
 from .about import COMMUNITY_LINKS, HELP_URL, HOMEPAGE_LABEL, HOMEPAGE_URL, display_version
+from .ai_setup import AiSetupModel, TUTORIALS
 from .catalog import App, CatalogError, load_catalog
 from .help import BAZAAR_APP_ID, GUIDES, SUGGESTIONS, AppSuggestion, bazaar_command
 from .progress import ProgressModel
@@ -102,6 +103,9 @@ class WelcomeWindow(Gtk.Window):
         self.install_process: subprocess.Popen[str] | None = None
         self.running = False
         self.pending_bazaar: tuple[AppSuggestion | None] | None = None
+        self.ai_model = AiSetupModel()
+        self.ai_running = False
+        self.recommended_model: str | None = None
 
         # Installed builds find these through hicolor normally. Add the source
         # tree while developing so screenshots and tests resolve the same art.
@@ -220,6 +224,7 @@ class WelcomeWindow(Gtk.Window):
         setup_page.pack_start(self.details_expander, False, False, 0)
 
         self.pages.add_titled(self._build_help_page(), "help", "Help & Apps")
+        self.pages.add_titled(self._build_ai_setup_page(), "ai-setup", "AI Setup")
 
         self.connect("delete-event", self._on_delete)
         self.connect("destroy", self._on_destroy)
@@ -335,6 +340,125 @@ class WelcomeWindow(Gtk.Window):
             open_button.connect("clicked", self._open_suggestion, suggestion)
             row.pack_start(open_button, False, False, 0)
             content.pack_start(row, False, False, 0)
+
+        scroll.add(content)
+        return scroll
+
+    def _build_ai_setup_page(self) -> Gtk.Widget:
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        content.set_border_width(4)
+        self.ai_buttons: list[Gtk.Button] = []
+
+        intro = Gtk.Label(
+            label=(
+                "Get this computer ready to use: pick a local AI model sized for "
+                "this hardware, test the microphone and speakers, check common "
+                "peripherals, find printers on the network, and continue setup."
+            ),
+            xalign=0,
+        )
+        intro.set_line_wrap(True)
+        intro.set_margin_bottom(4)
+        intro.get_style_context().add_class("choice-detail")
+        content.pack_start(intro, False, False, 0)
+
+        model_heading = Gtk.Label(label="Local AI Model", xalign=0)
+        model_heading.get_style_context().add_class("choice-title")
+        content.pack_start(model_heading, False, False, 0)
+        model_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        check_hardware_button = Gtk.Button(label="Check Hardware & Recommend a Model")
+        check_hardware_button.connect("clicked", self._check_hardware)
+        model_row.pack_start(check_hardware_button, False, False, 0)
+        self.install_model_button = Gtk.Button(label="Install Recommended Model")
+        self.install_model_button.set_sensitive(False)
+        self.install_model_button.connect("clicked", self._install_recommended_model)
+        model_row.pack_start(self.install_model_button, False, False, 0)
+        content.pack_start(model_row, False, False, 0)
+        self.ai_buttons.extend([check_hardware_button, self.install_model_button])
+
+        mic_heading = Gtk.Label(label="Microphone & Sound", xalign=0)
+        mic_heading.get_style_context().add_class("choice-title")
+        mic_heading.set_margin_top(6)
+        content.pack_start(mic_heading, False, False, 0)
+        mic_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        mic_button = Gtk.Button(label="Test Microphone (3s)")
+        mic_button.connect("clicked", self._test_microphone)
+        mic_row.pack_start(mic_button, False, False, 0)
+        sound_button = Gtk.Button(label="Open Sound Settings")
+        sound_button.connect("clicked", self._open_sound_settings)
+        mic_row.pack_start(sound_button, False, False, 0)
+        content.pack_start(mic_row, False, False, 0)
+        self.ai_buttons.extend([mic_button, sound_button])
+
+        peripherals_heading = Gtk.Label(label="Peripherals", xalign=0)
+        peripherals_heading.get_style_context().add_class("choice-title")
+        peripherals_heading.set_margin_top(6)
+        content.pack_start(peripherals_heading, False, False, 0)
+        peripherals_button = Gtk.Button(label="Check Peripherals")
+        peripherals_button.set_halign(Gtk.Align.START)
+        peripherals_button.connect("clicked", self._check_peripherals)
+        content.pack_start(peripherals_button, False, False, 0)
+        self.ai_buttons.append(peripherals_button)
+        self.peripherals_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        content.pack_start(self.peripherals_box, False, False, 0)
+
+        printers_heading = Gtk.Label(label="Printers", xalign=0)
+        printers_heading.get_style_context().add_class("choice-title")
+        printers_heading.set_margin_top(6)
+        content.pack_start(printers_heading, False, False, 0)
+        printers_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        find_printers_button = Gtk.Button(label="Find Network Printers")
+        find_printers_button.connect("clicked", self._find_printers)
+        printers_row.pack_start(find_printers_button, False, False, 0)
+        printer_settings_button = Gtk.Button(label="Open Printer Settings")
+        printer_settings_button.connect("clicked", self._open_printer_settings)
+        printers_row.pack_start(printer_settings_button, False, False, 0)
+        content.pack_start(printers_row, False, False, 0)
+        self.ai_buttons.extend([find_printers_button, printer_settings_button])
+        self.printers_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        content.pack_start(self.printers_box, False, False, 0)
+
+        ai_status_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        ai_status_box.set_margin_top(8)
+        self.ai_spinner = Gtk.Spinner()
+        ai_status_box.pack_start(self.ai_spinner, False, False, 0)
+        self.ai_status = Gtk.Label(label="Ready", xalign=0)
+        self.ai_status.get_style_context().add_class("status")
+        ai_status_box.pack_start(self.ai_status, False, False, 0)
+        content.pack_start(ai_status_box, False, False, 0)
+
+        self.ai_details_expander = Gtk.Expander(label="Details")
+        ai_detail_scroll = Gtk.ScrolledWindow()
+        ai_detail_scroll.set_min_content_height(110)
+        ai_detail_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        self.ai_details = Gtk.TextView()
+        self.ai_details.set_editable(False)
+        self.ai_details.set_cursor_visible(False)
+        self.ai_details.set_monospace(True)
+        self.ai_details.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        ai_detail_scroll.add(self.ai_details)
+        self.ai_details_expander.add(ai_detail_scroll)
+        content.pack_start(self.ai_details_expander, False, False, 0)
+
+        tutorials_heading = Gtk.Label(label="Continue Setting Up Spaced Linux", xalign=0)
+        tutorials_heading.get_style_context().add_class("choice-title")
+        tutorials_heading.set_margin_top(10)
+        content.pack_start(tutorials_heading, False, False, 0)
+        for title, instructions, source_url in TUTORIALS:
+            tutorial = Gtk.Expander(label=title)
+            tutorial_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+            tutorial_box.set_border_width(10)
+            copy = Gtk.Label(label=instructions, xalign=0)
+            copy.set_line_wrap(True)
+            copy.set_selectable(True)
+            tutorial_box.pack_start(copy, False, False, 0)
+            source = Gtk.LinkButton.new_with_label(source_url, "More information online")
+            source.set_halign(Gtk.Align.START)
+            tutorial_box.pack_start(source, False, False, 0)
+            tutorial.add(tutorial_box)
+            content.pack_start(tutorial, False, False, 0)
 
         scroll.add(content)
         return scroll
@@ -523,6 +647,173 @@ class WelcomeWindow(Gtk.Window):
         except OSError as error:
             self.status.set_text(f"Could not open Video Drivers: {error}")
 
+    # -- AI Setup page --------------------------------------------------------
+
+    @staticmethod
+    def _ai_setup_command() -> str:
+        configured = os.environ.get("SPACED_WELCOME_AI_SETUP")
+        if configured:
+            return configured
+        installed = Path("/usr/bin/spaced-welcome-ai-setup")
+        if installed.is_file():
+            return str(installed)
+        return str(Path(__file__).resolve().parents[2] / "bin" / "spaced-welcome-ai-setup")
+
+    def _set_ai_running(self, running: bool) -> None:
+        self.ai_running = running
+        for button in self.ai_buttons:
+            button.set_sensitive(not running)
+        if running:
+            self.ai_spinner.show()
+            self.ai_spinner.start()
+        else:
+            self.ai_spinner.stop()
+            self.ai_spinner.hide()
+
+    def _append_ai_detail(self, line: str) -> None:
+        buffer = self.ai_details.get_buffer()
+        buffer.insert(buffer.get_end_iter(), f"{line}\n")
+        mark = buffer.create_mark(None, buffer.get_end_iter(), False)
+        self.ai_details.scroll_to_mark(mark, 0.0, True, 0.0, 1.0)
+
+    def _start_ai_task(self, args: list[str], on_result=None) -> None:
+        if self.ai_running:
+            return
+        self.ai_model = AiSetupModel()
+        self.ai_details.get_buffer().set_text("")
+        self.ai_status.set_text("Working…")
+        self._set_ai_running(True)
+        threading.Thread(
+            target=self._ai_task_worker, args=(args, on_result), daemon=True
+        ).start()
+
+    def _ai_task_worker(self, args: list[str], on_result) -> None:
+        command = [self._ai_setup_command(), *args]
+        environment = os.environ.copy()
+        environment["PYTHONUNBUFFERED"] = "1"
+        result_payload: Any = None
+        returncode = 2
+        try:
+            process = subprocess.Popen(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                env=environment,
+                start_new_session=True,
+            )
+            assert process.stdout is not None
+            for raw_line in process.stdout:
+                line = raw_line.strip()
+                if not line:
+                    continue
+                try:
+                    payload = json.loads(line)
+                except json.JSONDecodeError:
+                    GLib.idle_add(self._apply_ai_event, {"event": "detail", "message": line})
+                    continue
+                if isinstance(payload, dict) and "event" in payload:
+                    GLib.idle_add(self._apply_ai_event, payload)
+                else:
+                    result_payload = payload
+            returncode = process.wait()
+        except OSError as error:
+            GLib.idle_add(
+                self._apply_ai_event,
+                {"event": "task-failure", "message": f"Could not start: {error}"},
+            )
+        GLib.idle_add(self._ai_task_finished, returncode, result_payload, on_result)
+
+    def _apply_ai_event(self, event: dict[str, Any]) -> bool:
+        self.ai_model.apply(event)
+        message = str(event.get("message", "")).strip()
+        if message:
+            self._append_ai_detail(message)
+        self.ai_status.set_text(self.ai_model.summary)
+        if event.get("event") == "task-failure":
+            self.ai_details_expander.set_expanded(True)
+        return False
+
+    def _ai_task_finished(self, returncode: int, result_payload: Any, on_result) -> bool:
+        self._set_ai_running(False)
+        if on_result is not None:
+            on_result(returncode, result_payload)
+        return False
+
+    def _check_hardware(self, _button: Gtk.Button) -> None:
+        def on_result(returncode: int, payload: Any) -> None:
+            if returncode != 0 or not isinstance(payload, dict):
+                return
+            model = payload.get("model")
+            reason = payload.get("reason", "")
+            gpu = payload.get("gpu_name")
+            gpu_text = f"{gpu} ({payload.get('gpu_vram_gb')}GB VRAM)" if gpu else "no GPU detected"
+            self.recommended_model = model
+            self.install_model_button.set_sensitive(bool(model))
+            self.ai_status.set_text(
+                f"RAM {payload.get('ram_gb')}GB, {gpu_text} — recommended {model}: {reason}"
+            )
+
+        self._start_ai_task(["--recommend-model", "--json"], on_result)
+
+    def _install_recommended_model(self, _button: Gtk.Button) -> None:
+        if not self.recommended_model:
+            return
+        self._start_ai_task(["--install-model", self.recommended_model, "--events"])
+
+    def _test_microphone(self, _button: Gtk.Button) -> None:
+        self._start_ai_task(["--test-microphone", "--events"])
+
+    def _open_sound_settings(self, _button: Gtk.Button) -> None:
+        def on_result(returncode: int, _payload: Any) -> None:
+            if returncode != 0:
+                self.ai_status.set_text("Could not open Sound Settings.")
+
+        self._start_ai_task(["--open-sound-settings", "--events"], on_result)
+
+    def _check_peripherals(self, _button: Gtk.Button) -> None:
+        def on_result(returncode: int, payload: Any) -> None:
+            for child in list(self.peripherals_box.get_children()):
+                self.peripherals_box.remove(child)
+            if returncode != 0 or not isinstance(payload, list):
+                return
+            for row in payload:
+                mark = "✓" if row.get("present") else "✗"
+                label = Gtk.Label(label=f"{mark} {row.get('name')}: {row.get('detail')}", xalign=0)
+                label.get_style_context().add_class("choice-detail")
+                self.peripherals_box.pack_start(label, False, False, 0)
+            self.peripherals_box.show_all()
+
+        self._start_ai_task(["--check-peripherals", "--json"], on_result)
+
+    def _find_printers(self, _button: Gtk.Button) -> None:
+        def on_result(returncode: int, payload: Any) -> None:
+            for child in list(self.printers_box.get_children()):
+                self.printers_box.remove(child)
+            if returncode != 0 or not isinstance(payload, list):
+                return
+            if not payload:
+                label = Gtk.Label(label="No network printers were found.", xalign=0)
+                label.get_style_context().add_class("choice-detail")
+                self.printers_box.pack_start(label, False, False, 0)
+            for printer in payload:
+                label = Gtk.Label(
+                    label=f"🖨 {printer.get('make_and_model')} — {printer.get('uri')}", xalign=0
+                )
+                label.get_style_context().add_class("choice-detail")
+                self.printers_box.pack_start(label, False, False, 0)
+            self.printers_box.show_all()
+
+        self._start_ai_task(["--find-printers", "--events", "--json"], on_result)
+
+    def _open_printer_settings(self, _button: Gtk.Button) -> None:
+        def on_result(returncode: int, _payload: Any) -> None:
+            if returncode != 0:
+                self.ai_status.set_text("Could not open Printer Settings.")
+
+        self._start_ai_task(["--open-printer-settings", "--events"], on_result)
+
     def _on_delete(self, *_args: object) -> bool:
         if self.running:
             self.status.set_text("Please wait for the current installation to finish before closing Welcome.")
@@ -568,8 +859,8 @@ def _mark_shown() -> bool:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="spaced-welcome")
     parser.add_argument("--first-run", action="store_true", help=argparse.SUPPRESS)
-    parser.add_argument("--page", choices=("setup", "help"), default="setup",
-                        help="open the setup or Help & Apps page")
+    parser.add_argument("--page", choices=("setup", "help", "ai-setup"), default="setup",
+                        help="open the setup, Help & Apps, or AI Setup page")
     args = parser.parse_args(argv)
     if args.first_run and (_is_live_session() or _state_file().exists()):
         return 0
