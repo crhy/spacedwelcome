@@ -176,6 +176,9 @@ class AiSetup:
         self.arecord = os.environ.get("SPACED_WELCOME_ARECORD", "arecord")
         self.parecord = os.environ.get("SPACED_WELCOME_PARECORD", "parecord")
         self.lpinfo = os.environ.get("SPACED_WELCOME_LPINFO", "lpinfo")
+        self.sbin_path = os.environ.get(
+            "SPACED_WELCOME_SBIN_PATH", "/usr/local/sbin:/usr/sbin:/sbin"
+        )
         self.sound_settings = os.environ.get(
             "SPACED_WELCOME_SOUND_SETTINGS", "mate-volume-control"
         )
@@ -368,15 +371,23 @@ class AiSetup:
 
     # -- Printers ---------------------------------------------------------------
 
+    def _resolve_lpinfo(self) -> str | None:
+        """Find lpinfo, which Debian ships in /usr/sbin -- off a desktop user's PATH."""
+        found = shutil.which(self.lpinfo)
+        if found is not None:
+            return found
+        return shutil.which(self.lpinfo, path=self.sbin_path)
+
     def find_printers(self) -> list[PrinterInfo]:
-        if not shutil.which(self.lpinfo):
+        lpinfo = self._resolve_lpinfo()
+        if lpinfo is None:
             message = "lpinfo is not installed; cannot search for printers"
             self.emit("task-failure", message=message)
             return []
         self.emit("task-start", message="Searching the local network for printers…")
         try:
             result = subprocess.run(
-                [self.lpinfo, "-v"],
+                [lpinfo, "-v"],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
@@ -390,7 +401,11 @@ class AiSetup:
         for line in result.stdout.splitlines():
             _device_class, _separator, uri = line.strip().partition(" ")
             uri = uri.strip()
-            if not uri or uri.split(":", 1)[0] not in {"dnssd", "socket", "ipp", "ipps", "lpd"}:
+            # With no devices found, lpinfo -v still lists the bare backend
+            # names ("network socket"), which are not printers. Only a real
+            # device URI carries a scheme separator.
+            scheme, separator, _rest = uri.partition("://")
+            if not separator or scheme not in {"dnssd", "socket", "ipp", "ipps", "lpd"}:
                 continue
             printers.append(PrinterInfo(uri=uri, make_and_model=uri.split("/")[-1] or uri))
         if printers:

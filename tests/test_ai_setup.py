@@ -240,6 +240,38 @@ class SubprocessHelperTests(unittest.TestCase):
         setup = AiSetup()
         self.assertEqual(setup.find_printers(), [])
 
+    def test_find_printers_ignores_bare_backend_names(self):
+        # What lpinfo -v actually prints on a machine with no printers at all.
+        self._executable(
+            self.fake_bin / "lpinfo",
+            r"""
+            #!/usr/bin/python3
+            for line in ("file cups-brf:/", "network beh", "network https",
+                         "network http", "network socket", "network lpd",
+                         "network ipp", "network ipps"):
+                print(line)
+            """,
+        )
+        events = []
+        setup = AiSetup(callback=events.append)
+        self.assertEqual(setup.find_printers(), [])
+        self.assertFalse(any(event["event"] == "task-success" for event in events))
+
+    def test_find_printers_finds_lpinfo_in_sbin_off_the_user_path(self):
+        sbin = Path(self.temp.name) / "sbin"
+        sbin.mkdir()
+        self._executable(
+            sbin / "lpinfo",
+            r"""
+            #!/bin/sh
+            echo "network socket://192.0.2.10"
+            """,
+        )
+        setup = AiSetup()
+        setup.sbin_path = str(sbin)
+        printers = setup.find_printers()
+        self.assertEqual([printer.uri for printer in printers], ["socket://192.0.2.10"])
+
     def test_find_printers_is_reported_missing_without_lpinfo(self):
         setup = AiSetup()
         setup.lpinfo = "lpinfo-does-not-exist"
