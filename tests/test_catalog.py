@@ -33,6 +33,7 @@ class CatalogTests(unittest.TestCase):
             "voice2text": "io.github.crhy.voice2textai",
             "cards-with-cats": "io.github.crhy.CardsWithCats",
             "brutal-chess": "io.github.crhy.BrutalChess",
+            "rhyciv": "io.github.crhy.rhYciv",
             "spaced-update": "org.spacedlinux.SpacedUpdate",
         }
         self.assertEqual({key: catalog.get(key).app_id for key in expected}, expected)
@@ -42,7 +43,7 @@ class CatalogTests(unittest.TestCase):
         self.assertTrue(catalog.get("spacedbazaar").suggested)
         self.assertEqual(
             [app.key for app in catalog.suggested() if app.source_type == "spaced-github"],
-            ["spacedbazaar", "voice2text", "cards-with-cats", "brutal-chess"],
+            ["spacedbazaar", "voice2text", "cards-with-cats", "brutal-chess", "rhyciv"],
         )
         # Spaced Linux ships Spaced Update natively and its menu entry runs
         # that copy. Installing the Flatpak too left two identically named

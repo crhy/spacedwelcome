@@ -50,6 +50,18 @@
       }
     },
     {
+      "key": "rhyciv",
+      "name": "rhYciv",
+      "app_id": "io.github.crhy.rhYciv",
+      "branch": "master",
+      "description": "A high-resolution turn-based empire strategy game.",
+      "preinstalled": false,
+      "suggested": true,
+      "source": {
+        "type": "spaced-github"
+      }
+    },
+    {
       "key": "spaced-update",
       "name": "Spaced Update",
       "app_id": "org.spacedlinux.SpacedUpdate",
