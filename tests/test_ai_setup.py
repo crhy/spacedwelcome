@@ -11,7 +11,7 @@ from spaced_welcome.ai_setup import (
     AiSetup,
     clean_progress_line,
     HardwareProfile,
-    MODEL_TIERS,
+    MODEL_CATALOG,
     _detect_gpu,
     _read_ram_gb,
     recommend_model,
@@ -37,19 +37,37 @@ class HardwareDetectionTests(unittest.TestCase):
 class ModelRecommendationTests(unittest.TestCase):
     def test_minimal_hardware_gets_the_smallest_model(self):
         profile = HardwareProfile(ram_gb=2.0, gpu_name=None, gpu_vram_gb=0.0)
-        self.assertEqual(recommend_model(profile).model, MODEL_TIERS[0][1])
+        self.assertEqual(recommend_model(profile).model, MODEL_CATALOG[0].name)
 
     def test_desktop_ram_gets_the_balanced_model(self):
         profile = HardwareProfile(ram_gb=16.0, gpu_name=None, gpu_vram_gb=0.0)
-        self.assertEqual(recommend_model(profile).model, "qwen2:7b")
+        self.assertEqual(recommend_model(profile).model, "qwen2.5:14b")
 
     def test_large_gpu_gets_the_best_model_regardless_of_ram(self):
         profile = HardwareProfile(ram_gb=8.0, gpu_name="RTX 4090", gpu_vram_gb=24.0)
-        self.assertEqual(recommend_model(profile).model, "qwen3.6:27b")
+        self.assertEqual(recommend_model(profile).model, "qwen2.5:14b")
 
     def test_small_gpu_does_not_get_the_best_model_even_with_lots_of_ram(self):
         profile = HardwareProfile(ram_gb=64.0, gpu_name="GTX 1650", gpu_vram_gb=4.0)
-        self.assertEqual(recommend_model(profile).model, "qwen2:0.5b")
+        self.assertEqual(recommend_model(profile).model, "llama3.2:3b")
+
+    def test_a_16gb_card_is_offered_more_than_a_7b_model(self):
+        # The old flat tiers gave every card from 8GB to 17GB the same 7b
+        # model, which used under a third of a 16GB card.
+        profile = HardwareProfile(ram_gb=32.0, gpu_name="RTX 4070 Ti SUPER", gpu_vram_gb=16.0)
+        self.assertEqual(recommend_model(profile).model, "qwen2.5:14b")
+
+    def test_headroom_rejects_a_model_that_only_fits_by_its_weights(self):
+        # qwen2.5:14b is 9GB of weights, so it "fits" 10GB on paper; the cache
+        # and activations do not, and the rule has to say no.
+        profile = HardwareProfile(ram_gb=8.0, gpu_name="RTX 3080", gpu_vram_gb=10.0)
+        self.assertEqual(recommend_model(profile).model, "llama3.1:8b")
+
+    def test_every_catalog_entry_is_reachable_by_some_machine(self):
+        for tier in MODEL_CATALOG:
+            budget = tier.approx_gb * 1.3 + 1.0
+            profile = HardwareProfile(ram_gb=budget, gpu_name=None, gpu_vram_gb=0.0)
+            self.assertEqual(recommend_model(profile).model, tier.name)
 
 
 class PeripheralCheckTests(unittest.TestCase):

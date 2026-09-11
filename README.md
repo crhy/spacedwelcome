@@ -80,7 +80,7 @@ The AI Setup page is backed by its own CLI:
 ```sh
 spaced-welcome-ai-setup --detect-hardware --json
 spaced-welcome-ai-setup --recommend-model
-spaced-welcome-ai-setup --install-model qwen2:7b --events
+spaced-welcome-ai-setup --install-model qwen2.5:7b --events
 spaced-welcome-ai-setup --test-microphone --json
 spaced-welcome-ai-setup --open-sound-settings
 spaced-welcome-ai-setup --check-peripherals --json

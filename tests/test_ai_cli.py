@@ -10,6 +10,8 @@ import tempfile
 import textwrap
 import unittest
 
+from spaced_welcome.ai_setup import MODEL_CATALOG
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -69,7 +71,8 @@ class AiSetupCliTests(unittest.TestCase):
     def test_recommend_model_prints_a_model_name(self):
         result = self.run_cli("--recommend-model")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("qwen2", result.stdout)
+        named = [tier.name for tier in MODEL_CATALOG if result.stdout.startswith(tier.name)]
+        self.assertEqual(len(named), 1, f"no catalog model named in {result.stdout!r}")
 
     def test_recommend_model_json_includes_hardware(self):
         result = self.run_cli("--recommend-model", "--json")

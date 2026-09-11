@@ -21,14 +21,38 @@ class AiSetupError(RuntimeError):
     """An actionable failure while probing hardware or running a helper tool."""
 
 
-# Smallest-to-largest local models, mirroring the tiers Voice2Text AI documents
-# in its README. Each tier is keyed by the minimum GB of *usable* memory (GPU
-# VRAM when a GPU is present, otherwise system RAM) it should be offered at.
-MODEL_TIERS: tuple[tuple[float, str, str], ...] = (
-    (0.0, "qwen2:0.5b", "Fastest replies on minimal or shared hardware (~350MB download)."),
-    (8.0, "qwen2:7b", "A balanced model for a typical desktop or laptop."),
-    (17.0, "qwen3.6:27b", "The best local quality; needs a GPU with 17GB+ VRAM."),
+@dataclass(frozen=True)
+class ModelTier:
+    name: str
+    approx_gb: float
+    reason: str
+
+
+# Smallest-to-largest, mirroring Voice2Text AI's MODEL_CATALOG entry for entry
+# so that both apps recommend the same model for the same machine. approx_gb is
+# the model's weights at the default quantization, used only for ranking.
+MODEL_CATALOG: tuple[ModelTier, ...] = (
+    ModelTier("qwen2.5:0.5b", 0.4, "Fastest, runs on almost anything"),
+    ModelTier("qwen2.5:1.5b", 1.0, "Very fast, good for low-memory devices"),
+    ModelTier("llama3.2:3b", 2.0, "Good balance for laptops without a GPU"),
+    ModelTier("qwen2.5:7b", 4.7, "Strong general-purpose model"),
+    ModelTier("llama3.1:8b", 4.9, "Strong general-purpose model"),
+    ModelTier("qwen2.5:14b", 9.0, "Noticeably smarter, wants a mid-range GPU"),
+    ModelTier("qwen2.5:32b", 20.0, "High quality, wants a 24GB+ GPU"),
+    ModelTier("llama3.1:70b", 40.0, "Top quality, wants multiple GPUs or a lot of unified memory"),
 )
+
+# Voice2Text AI's headroom rule, for the same reason it has one: the weight
+# figure above says nothing about the KV cache, which grows with the context
+# length and is charged to the same memory. qwen2.5:14b adds 0.75GB of cache at
+# Ollama's default 4k context and 6GB at 32k, so a model picked on weights
+# alone is one that fits until the conversation gets long.
+_HEADROOM_FACTOR = 1.3
+_HEADROOM_FLOOR_GB = 1.0
+
+
+def _fits(budget_gb: float, tier: ModelTier) -> bool:
+    return budget_gb >= tier.approx_gb * _HEADROOM_FACTOR + _HEADROOM_FLOOR_GB
 
 OLLAMA_INSTALL_COMMAND = "curl -fsSL https://ollama.com/install.sh | sh"
 
@@ -150,12 +174,10 @@ def detect_hardware() -> HardwareProfile:
 
 
 def recommend_model(profile: HardwareProfile) -> ModelRecommendation:
-    chosen = MODEL_TIERS[0]
-    for tier in MODEL_TIERS:
-        if profile.budget_gb >= tier[0]:
-            chosen = tier
-    _, model, reason = chosen
-    return ModelRecommendation(model=model, reason=reason, profile=profile)
+    """Largest catalog model that fits the budget with headroom to actually run."""
+    fitting = [tier for tier in MODEL_CATALOG if _fits(profile.budget_gb, tier)]
+    chosen = fitting[-1] if fitting else MODEL_CATALOG[0]
+    return ModelRecommendation(model=chosen.name, reason=chosen.reason, profile=profile)
 
 
 def _glob_check(name: str, root: Path, pattern: str) -> PeripheralCheck:

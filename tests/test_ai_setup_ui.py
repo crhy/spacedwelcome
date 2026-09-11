@@ -49,10 +49,10 @@ class AiSetupUiActionTests(unittest.TestCase):
         window = self.window()
         ui.WelcomeWindow._check_hardware(window, MagicMock())
         on_result = window._start_ai_task.call_args.args[1]
-        on_result(0, {"model": "qwen2:7b", "reason": "balanced", "ram_gb": 16.0, "gpu_name": None})
-        self.assertEqual(window.recommended_model, "qwen2:7b")
+        on_result(0, {"model": "qwen2.5:14b", "reason": "balanced", "ram_gb": 16.0, "gpu_name": None})
+        self.assertEqual(window.recommended_model, "qwen2.5:14b")
         window.install_model_button.set_sensitive.assert_called_once_with(True)
-        self.assertIn("qwen2:7b", window.ai_status.set_text.call_args.args[0])
+        self.assertIn("qwen2.5:14b", window.ai_status.set_text.call_args.args[0])
 
     def test_failed_hardware_check_does_not_enable_install(self):
         window = self.window()
@@ -70,9 +70,9 @@ class AiSetupUiActionTests(unittest.TestCase):
 
     def test_install_recommended_model_streams_events(self):
         window = self.window()
-        window.recommended_model = "qwen2:7b"
+        window.recommended_model = "qwen2.5:14b"
         ui.WelcomeWindow._install_recommended_model(window, MagicMock())
-        window._start_ai_task.assert_called_once_with(["--install-model", "qwen2:7b", "--events"])
+        window._start_ai_task.assert_called_once_with(["--install-model", "qwen2.5:14b", "--events"])
 
     def test_peripherals_result_renders_each_row(self):
         window = self.window()
