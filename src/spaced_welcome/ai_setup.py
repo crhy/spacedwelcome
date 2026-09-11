@@ -32,6 +32,16 @@ MODEL_TIERS: tuple[tuple[float, str, str], ...] = (
 
 OLLAMA_INSTALL_COMMAND = "curl -fsSL https://ollama.com/install.sh | sh"
 
+# Ollama draws its download progress with terminal control codes even when its
+# output is a pipe, so they have to come back out before the text reaches a
+# GTK label.
+_TERMINAL_CONTROL = re.compile(r"\x1b\[[0-9;?]*[a-zA-Z]|\x1b[()][A-Z0-9]|\x1b[=>]|[\r\x07]")
+
+
+def clean_progress_line(line: str) -> str:
+    """Strip terminal control codes from one line of a helper's progress output."""
+    return _TERMINAL_CONTROL.sub("", line).strip()
+
 
 @dataclass(frozen=True)
 class HardwareProfile:
@@ -218,7 +228,7 @@ class AiSetup:
                 assert process.stdout is not None
                 last_line = ""
                 for raw_line in process.stdout:
-                    line = raw_line.strip()
+                    line = clean_progress_line(raw_line)
                     if line and line != last_line:
                         self.emit("detail", message=line)
                         last_line = line

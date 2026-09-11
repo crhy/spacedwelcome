@@ -9,6 +9,7 @@ import unittest
 
 from spaced_welcome.ai_setup import (
     AiSetup,
+    clean_progress_line,
     HardwareProfile,
     MODEL_TIERS,
     _detect_gpu,
@@ -180,6 +181,19 @@ class SubprocessHelperTests(unittest.TestCase):
         result = setup.test_microphone(seconds=1)
         self.assertFalse(result.ok)
         self.assertIn("connection refused", result.message)
+
+    def test_progress_lines_lose_their_terminal_control_codes(self):
+        raw = (
+            "pulling c5396e06af29: 100% \u2595\u2588\u2588\u258f 396 MB/397 MB"
+            "\x1b[K\x1b[?25h\x1b[?2026l\r"
+        )
+        self.assertEqual(
+            clean_progress_line(raw),
+            "pulling c5396e06af29: 100% \u2595\u2588\u2588\u258f 396 MB/397 MB",
+        )
+
+    def test_progress_line_of_only_control_codes_is_dropped(self):
+        self.assertEqual(clean_progress_line("\x1b[?25l\x1b[A\x1b[1G\x1b[K"), "")
 
     def test_ollama_missing_reports_the_install_command(self):
         events = []
