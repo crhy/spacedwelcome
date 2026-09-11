@@ -804,10 +804,9 @@ class WelcomeWindow(Gtk.Window):
                 self.printers_box.remove(child)
             if returncode != 0 or not isinstance(payload, list):
                 return
-            if not payload:
-                label = Gtk.Label(label="No network printers were found.", xalign=0)
-                label.get_style_context().add_class("choice-detail")
-                self.printers_box.pack_start(label, False, False, 0)
+            # The empty case is reported once, by the status line, from the
+            # "detail" event find_printers emits; a placeholder row here as
+            # well showed the user the same sentence twice.
             for printer in payload:
                 label = Gtk.Label(
                     label=f"🖨 {printer.get('make_and_model')} — {printer.get('uri')}", xalign=0

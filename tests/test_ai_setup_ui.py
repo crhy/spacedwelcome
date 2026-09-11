@@ -105,12 +105,13 @@ class AiSetupUiActionTests(unittest.TestCase):
         window.printers_box.pack_start.assert_called_once()
         window.printers_box.show_all.assert_called_once()
 
-    def test_no_printers_found_shows_a_placeholder_row(self):
+    def test_no_printers_found_adds_no_rows(self):
+        # The status line already says so; a row here would repeat it verbatim.
         window = self.window()
         ui.WelcomeWindow._find_printers(window, MagicMock())
         on_result = window._start_ai_task.call_args.args[1]
         on_result(0, [])
-        window.printers_box.pack_start.assert_called_once()
+        window.printers_box.pack_start.assert_not_called()
 
     def test_running_guard_prevents_duplicate_ai_tasks(self):
         window = self.window()
