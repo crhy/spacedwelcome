@@ -77,6 +77,25 @@ class UiActionTests(unittest.TestCase):
         window.rows["voice2text"].status.set_text.assert_not_called()
         window._set_running.assert_called_once_with(True)
 
+    def test_a_rows_install_button_installs_only_that_application(self):
+        window = self.window()
+        app = MagicMock()
+        app.key = "rhyciv"
+        ui.WelcomeWindow._install_one(window, app)
+        window._start_install.assert_called_once_with("rhyciv")
+
+    def test_running_disables_every_rows_install_button(self):
+        window = self.window()
+        ui.WelcomeWindow._set_running(window, True)
+        for row in window.rows.values():
+            row.install_button.set_sensitive.assert_called_once_with(False)
+
+    def test_finishing_re_enables_every_rows_install_button(self):
+        window = self.window()
+        ui.WelcomeWindow._set_running(window, False)
+        for row in window.rows.values():
+            row.install_button.set_sensitive.assert_called_once_with(True)
+
     def test_running_guard_prevents_duplicate_install_workers(self):
         window = self.window()
         window.running = True

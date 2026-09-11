@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Callable
 import json
 import os
 from pathlib import Path
@@ -62,7 +63,7 @@ textview, textview text { background-color: #111316; color: #d9dce2; }
 
 
 class AppRow(Gtk.Box):
-    def __init__(self, app: App):
+    def __init__(self, app: App, on_install: Callable[[App], None] | None = None):
         super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         self.app = app
         self.get_style_context().add_class("app-row")
@@ -83,10 +84,19 @@ class AppRow(Gtk.Box):
         self.pack_start(source, False, False, 0)
 
         self.status = Gtk.Label(label="Ready", xalign=0)
-        self.status.set_width_chars(34)
+        self.status.set_width_chars(26)
         self.status.set_line_wrap(True)
         self.status.get_style_context().add_class("app-status")
         self.pack_start(self.status, False, False, 0)
+
+        # Installing one application is what the CLI underneath has always
+        # supported; until now the page could only ask for all of them.
+        self.install_button = Gtk.Button(label="Install")
+        self.install_button.set_valign(Gtk.Align.CENTER)
+        self.install_button.get_style_context().add_class("app-install")
+        if on_install is not None:
+            self.install_button.connect("clicked", lambda _button: on_install(app))
+        self.pack_start(self.install_button, False, False, 0)
 
 
 class WelcomeWindow(Gtk.Window):
@@ -181,7 +191,7 @@ class WelcomeWindow(Gtk.Window):
         app_scroll.set_shadow_type(Gtk.ShadowType.IN)
         app_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         for app in self.catalog.suggested():
-            row = AppRow(app)
+            row = AppRow(app, self._install_one)
             self.rows[app.key] = row
             app_box.pack_start(row, False, False, 0)
         app_scroll.add(app_box)
@@ -473,6 +483,8 @@ class WelcomeWindow(Gtk.Window):
         self.running = running
         self.suggested_button.set_sensitive(not running)
         self.bazaar_button.set_sensitive(not running)
+        for row in self.rows.values():
+            row.install_button.set_sensitive(not running)
         if running:
             self.spinner.show()
             self.spinner.start()
@@ -482,6 +494,9 @@ class WelcomeWindow(Gtk.Window):
 
     def _start_suggested_install(self, _button: Gtk.Button) -> None:
         self._start_install("suggested")
+
+    def _install_one(self, app: App) -> None:
+        self._start_install(app.key)
 
     def _start_install(self, selection: str) -> None:
         if self.running:
