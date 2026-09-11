@@ -45,7 +45,7 @@ class ModelRecommendationTests(unittest.TestCase):
 
     def test_large_gpu_gets_the_best_model_regardless_of_ram(self):
         profile = HardwareProfile(ram_gb=8.0, gpu_name="RTX 4090", gpu_vram_gb=24.0)
-        self.assertEqual(recommend_model(profile).model, "qwen2.5:14b")
+        self.assertEqual(recommend_model(profile).model, "qwen3.8:27b")
 
     def test_small_gpu_does_not_get_the_best_model_even_with_lots_of_ram(self):
         profile = HardwareProfile(ram_gb=64.0, gpu_name="GTX 1650", gpu_vram_gb=4.0)
@@ -61,7 +61,9 @@ class ModelRecommendationTests(unittest.TestCase):
         # qwen2.5:14b is 9GB of weights, so it "fits" 10GB on paper; the cache
         # and activations do not, and the rule has to say no.
         profile = HardwareProfile(ram_gb=8.0, gpu_name="RTX 3080", gpu_vram_gb=10.0)
-        self.assertEqual(recommend_model(profile).model, "llama3.1:8b")
+        chosen = recommend_model(profile).model
+        self.assertNotEqual(chosen, "qwen2.5:14b")
+        self.assertEqual(chosen, "qwen3.5:9b")
 
     def test_every_catalog_entry_is_reachable_by_some_machine(self):
         for tier in MODEL_CATALOG:

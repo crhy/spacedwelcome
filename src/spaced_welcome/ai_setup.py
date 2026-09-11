@@ -33,12 +33,18 @@ class ModelTier:
 # the model's weights at the default quantization, used only for ranking.
 MODEL_CATALOG: tuple[ModelTier, ...] = (
     ModelTier("qwen2.5:0.5b", 0.4, "Fastest, runs on almost anything"),
+    ModelTier("gemma3:1b", 0.8, "Very small, still writes coherently"),
     ModelTier("qwen2.5:1.5b", 1.0, "Very fast, good for low-memory devices"),
     ModelTier("llama3.2:3b", 2.0, "Good balance for laptops without a GPU"),
+    ModelTier("qwen3.5:2b", 2.6, "Newer generation, small enough for a laptop"),
+    ModelTier("qwen3.5:4b", 3.2, "Newer generation, good on modest hardware"),
     ModelTier("qwen2.5:7b", 4.7, "Strong general-purpose model"),
     ModelTier("llama3.1:8b", 4.9, "Strong general-purpose model"),
+    ModelTier("qwen3.5:9b", 6.2, "Newer generation, strong for its size"),
     ModelTier("qwen2.5:14b", 9.0, "Noticeably smarter, wants a mid-range GPU"),
+    ModelTier("qwen3.8:27b", 15.7, "Latest generation, wants a 24GB GPU"),
     ModelTier("qwen2.5:32b", 20.0, "High quality, wants a 24GB+ GPU"),
+    ModelTier("qwen3.5:35b", 22.3, "Newer generation at the top end, wants 30GB+"),
     ModelTier("llama3.1:70b", 40.0, "Top quality, wants multiple GPUs or a lot of unified memory"),
 )
 
