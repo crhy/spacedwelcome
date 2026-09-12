@@ -514,6 +514,11 @@ class WelcomeWindow(Gtk.Window):
             )
         except OSError as error:
             self.status.set_text(f"Could not open SpacedBazaar: {error}")
+        else:
+            # Issue #210: the "Opening …" text is a transient launch notice,
+            # not a persistent state. A successful fire-and-forget Popen left
+            # it on screen forever, so replace it with the completed state.
+            self.status.set_text("SpacedBazaar is open.")
         return False
 
     def _open_nvidia_installer(self, _button: Gtk.Button) -> None:
