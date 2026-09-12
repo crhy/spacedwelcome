@@ -24,6 +24,9 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.1.15" date="2026-09-12">
+      <description><p>Replaces the "Opening SpacedBazaar" status once SpacedBazaar has launched, instead of leaving it on screen.</p></description>
+    </release>
     <release version="0.1.14" date="2026-09-12">
       <description><p>Removes the native Spaced Update action, reorganizes the suggested application list, and clarifies the SpacedBazaar action.</p></description>
     </release>
