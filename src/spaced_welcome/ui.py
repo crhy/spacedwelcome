@@ -152,8 +152,8 @@ class WelcomeWindow(Gtk.Window):
         actions.pack_start(self.suggested_button, True, True, 0)
         self.bazaar_button = self._choice(
             "io.github.crhy.SpacedBazaar",
-            "Open SpacedBazaar",
-            "Install the app store if needed, then open it",
+            "Install SpacedBazaar and then pick your own apps.",
+            "Choose applications in SpacedBazaar",
         )
         self.bazaar_button.connect("clicked", self._open_bazaar)
         actions.pack_start(self.bazaar_button, True, True, 0)

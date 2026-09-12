@@ -14,6 +14,30 @@
       }
     },
     {
+      "key": "brave",
+      "name": "Brave Browser",
+      "app_id": "com.brave.Browser",
+      "branch": "stable",
+      "description": "A privacy-focused web browser.",
+      "preinstalled": false,
+      "suggested": true,
+      "source": {
+        "type": "flathub"
+      }
+    },
+    {
+      "key": "libreoffice",
+      "name": "LibreOffice",
+      "app_id": "org.libreoffice.LibreOffice",
+      "branch": "stable",
+      "description": "Writer, Calc, Impress, and the LibreOffice suite.",
+      "preinstalled": false,
+      "suggested": true,
+      "source": {
+        "type": "flathub"
+      }
+    },
+    {
       "key": "voice2text",
       "name": "Voice2Text AI",
       "app_id": "io.github.crhy.voice2textai",
@@ -26,11 +50,35 @@
       }
     },
     {
-      "key": "cards-with-cats",
-      "name": "Cards With Cats",
-      "app_id": "io.github.crhy.CardsWithCats",
+      "key": "audacious",
+      "name": "Audacious",
+      "app_id": "org.atheme.audacious",
+      "branch": "stable",
+      "description": "A lightweight music player.",
+      "preinstalled": false,
+      "suggested": true,
+      "source": {
+        "type": "flathub"
+      }
+    },
+    {
+      "key": "vlc",
+      "name": "VLC",
+      "app_id": "org.videolan.VLC",
+      "branch": "stable",
+      "description": "A versatile video and audio player.",
+      "preinstalled": false,
+      "suggested": true,
+      "source": {
+        "type": "flathub"
+      }
+    },
+    {
+      "key": "rhyciv",
+      "name": "rhYciv",
+      "app_id": "io.github.crhy.rhYciv",
       "branch": "master",
-      "description": "A card game created for Spaced Linux.",
+      "description": "A creative application for Spaced Linux.",
       "preinstalled": false,
       "suggested": true,
       "source": {
@@ -50,56 +98,16 @@
       }
     },
     {
-      "key": "spaced-update",
-      "name": "Spaced Update",
-      "app_id": "org.spacedlinux.SpacedUpdate",
-      "branch": "stable",
-      "description": "Update Spaced Linux and Flatpak applications together.",
+      "key": "cards-with-cats",
+      "name": "Cards With Cats",
+      "app_id": "io.github.crhy.CardsWithCats",
+      "branch": "master",
+      "description": "A card game created for Spaced Linux.",
       "preinstalled": false,
-      "suggested": false,
+      "suggested": true,
       "source": {
         "type": "spaced-github"
       }
-    },
-    {
-      "key": "audacious",
-      "name": "Audacious",
-      "app_id": "org.atheme.audacious",
-      "branch": "stable",
-      "description": "A lightweight music player.",
-      "preinstalled": false,
-      "suggested": true,
-      "source": {"type": "flathub"}
-    },
-    {
-      "key": "brave",
-      "name": "Brave Browser",
-      "app_id": "com.brave.Browser",
-      "branch": "stable",
-      "description": "A privacy-focused web browser.",
-      "preinstalled": false,
-      "suggested": true,
-      "source": {"type": "flathub"}
-    },
-    {
-      "key": "libreoffice",
-      "name": "LibreOffice",
-      "app_id": "org.libreoffice.LibreOffice",
-      "branch": "stable",
-      "description": "Writer, Calc, Impress, and the LibreOffice suite.",
-      "preinstalled": false,
-      "suggested": true,
-      "source": {"type": "flathub"}
-    },
-    {
-      "key": "vlc",
-      "name": "VLC",
-      "app_id": "org.videolan.VLC",
-      "branch": "stable",
-      "description": "A versatile video and audio player.",
-      "preinstalled": false,
-      "suggested": true,
-      "source": {"type": "flathub"}
     }
   ]
 }

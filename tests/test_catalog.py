@@ -30,10 +30,10 @@ class CatalogTests(unittest.TestCase):
         catalog = load_catalog(SOURCE_ROOT_CATALOG)
         expected = {
             "spacedbazaar": "io.github.crhy.SpacedBazaar",
+            "rhyciv": "io.github.crhy.rhYciv",
             "voice2text": "io.github.crhy.voice2textai",
             "cards-with-cats": "io.github.crhy.CardsWithCats",
             "brutal-chess": "io.github.crhy.BrutalChess",
-            "spaced-update": "org.spacedlinux.SpacedUpdate",
         }
         self.assertEqual({key: catalog.get(key).app_id for key in expected}, expected)
         for key in expected:
@@ -41,14 +41,17 @@ class CatalogTests(unittest.TestCase):
         self.assertFalse(catalog.get("spacedbazaar").preinstalled)
         self.assertTrue(catalog.get("spacedbazaar").suggested)
         self.assertEqual(
+            [app.key for app in catalog.suggested()],
+            ["spacedbazaar", "brave", "libreoffice", "voice2text", "audacious", "vlc", "rhyciv", "brutal-chess", "cards-with-cats"],
+        )
+        self.assertEqual(
             [app.key for app in catalog.suggested() if app.source_type == "spaced-github"],
-            ["spacedbazaar", "voice2text", "cards-with-cats", "brutal-chess"],
+            ["spacedbazaar", "voice2text", "rhyciv", "brutal-chess", "cards-with-cats"],
         )
         # Spaced Linux ships Spaced Update natively and its menu entry runs
-        # that copy. Installing the Flatpak too left two identically named
-        # launchers, so it stays in the catalog but is never suggested.
-        self.assertFalse(catalog.get("spaced-update").suggested)
-        self.assertFalse(catalog.get("spaced-update").preinstalled)
+        # that copy, so the Flatpak was retired rather than offered here.
+        with self.assertRaisesRegex(CatalogError, "Unknown application: spaced-update"):
+            catalog.get("spaced-update")
         for key in ("audacious", "brave", "libreoffice", "vlc"):
             self.assertEqual(catalog.get(key).branch, "stable")
 

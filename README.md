@@ -34,10 +34,10 @@ verified CRHY applications:
 | Application | Flatpak ID | Delivery |
 | --- | --- | --- |
 | SpacedBazaar | `io.github.crhy.SpacedBazaar` | Signed `spaced-github` remote |
+| rhYciv | `io.github.crhy.rhYciv` | Signed `spaced-github` remote |
 | Voice2Text AI | `io.github.crhy.voice2textai` | Signed `spaced-github` remote |
 | Cards With Cats | `io.github.crhy.CardsWithCats` | Signed `spaced-github` remote |
 | Brutal Chess | `io.github.crhy.BrutalChess` | Signed `spaced-github` remote |
-| Spaced Update | `org.spacedlinux.SpacedUpdate` | Signed `spaced-github` remote |
 
 Audacious, Brave, LibreOffice, and VLC are suggested from Flathub's `stable`
 branch. Every catalog entry names its branch explicitly so a missing remote
