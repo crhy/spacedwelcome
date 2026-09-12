@@ -9,6 +9,15 @@ case "$version" in
     *) echo "Invalid VERSION: $version" >&2; exit 1 ;;
 esac
 
+if [[ -z ${SOURCE_DATE_EPOCH:-} ]]; then
+    SOURCE_DATE_EPOCH=$(git -C "$root" log -1 --format=%ct)
+fi
+[[ $SOURCE_DATE_EPOCH =~ ^[0-9]+$ ]] || {
+    echo "Invalid SOURCE_DATE_EPOCH: $SOURCE_DATE_EPOCH" >&2
+    exit 1
+}
+export SOURCE_DATE_EPOCH
+
 output_dir=${SPACED_WELCOME_OUTPUT_DIR:-$root/dist}
 artifact="$output_dir/spaced-welcome_${version}_all.deb"
 stage=$(mktemp -d "${TMPDIR:-/tmp}/spaced-welcome-deb.XXXXXXXX")
@@ -58,6 +67,7 @@ find "$stage" -type d -exec chmod 0755 {} +
 find "$stage" -type f ! -path "$stage/DEBIAN/postinst" \
     ! -path "$stage/DEBIAN/prerm" ! -path "$stage/usr/bin/spaced-welcome" \
     ! -path "$stage/usr/bin/spaced-welcome-install" -exec chmod 0644 {} +
+find "$stage" -exec touch --date="@$SOURCE_DATE_EPOCH" {} +
 
 mkdir -p "$output_dir"
 rm -f -- "$artifact"

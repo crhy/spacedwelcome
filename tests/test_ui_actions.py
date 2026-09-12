@@ -29,6 +29,11 @@ with patch.dict(sys.modules, {"gi": gi, "gi.repository": repository}):
 
 
 class UiActionTests(unittest.TestCase):
+    def test_spacedbazaar_action_uses_clear_install_wording(self):
+        source = (Path(__file__).parents[1] / "src/spaced_welcome/ui.py").read_text()
+        self.assertIn("Install SpacedBazaar and then pick your own apps.", source)
+        self.assertNotIn('"Open SpacedBazaar"', source)
+
     def window(self):
         window = MagicMock()
         window.running = False
