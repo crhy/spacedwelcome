@@ -38,11 +38,11 @@
       }
     },
     {
-      "key": "voice2text",
-      "name": "Voice2Text AI",
-      "app_id": "io.github.crhy.voice2textai",
+      "key": "voxa",
+      "name": "Voxa",
+      "app_id": "io.github.crhy.voxa",
       "branch": "master",
-      "description": "Private on-device speech transcription and AI tools.",
+      "description": "Private voice assistant with local dictation and AI.",
       "preinstalled": false,
       "suggested": true,
       "source": {

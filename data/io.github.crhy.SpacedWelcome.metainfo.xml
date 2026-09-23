@@ -24,6 +24,9 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.1.16" date="2026-09-23">
+      <description><p>Suggests Voxa, a private voice assistant with local dictation and AI, in place of Voice2Text AI.</p></description>
+    </release>
     <release version="0.1.15" date="2026-09-12">
       <description><p>Replaces the "Opening SpacedBazaar" status once SpacedBazaar has launched, instead of leaving it on screen.</p></description>
     </release>

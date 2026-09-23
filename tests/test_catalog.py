@@ -31,7 +31,7 @@ class CatalogTests(unittest.TestCase):
         expected = {
             "spacedbazaar": "io.github.crhy.SpacedBazaar",
             "rhyciv": "io.github.crhy.rhYciv",
-            "voice2text": "io.github.crhy.voice2textai",
+            "voxa": "io.github.crhy.voxa",
             "cards-with-cats": "io.github.crhy.CardsWithCats",
             "brutal-chess": "io.github.crhy.BrutalChess",
         }
@@ -42,11 +42,11 @@ class CatalogTests(unittest.TestCase):
         self.assertTrue(catalog.get("spacedbazaar").suggested)
         self.assertEqual(
             [app.key for app in catalog.suggested()],
-            ["spacedbazaar", "brave", "libreoffice", "voice2text", "audacious", "vlc", "rhyciv", "brutal-chess", "cards-with-cats"],
+            ["spacedbazaar", "brave", "libreoffice", "voxa", "audacious", "vlc", "rhyciv", "brutal-chess", "cards-with-cats"],
         )
         self.assertEqual(
             [app.key for app in catalog.suggested() if app.source_type == "spaced-github"],
-            ["spacedbazaar", "voice2text", "rhyciv", "brutal-chess", "cards-with-cats"],
+            ["spacedbazaar", "voxa", "rhyciv", "brutal-chess", "cards-with-cats"],
         )
         # Spaced Linux ships Spaced Update natively and its menu entry runs
         # that copy, so the Flatpak was retired rather than offered here.

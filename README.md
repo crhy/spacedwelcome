@@ -35,7 +35,7 @@ verified CRHY applications:
 | --- | --- | --- |
 | SpacedBazaar | `io.github.crhy.SpacedBazaar` | Signed `spaced-github` remote |
 | rhYciv | `io.github.crhy.rhYciv` | Signed `spaced-github` remote |
-| Voice2Text AI | `io.github.crhy.voice2textai` | Signed `spaced-github` remote |
+| Voxa | `io.github.crhy.voxa` | Signed `spaced-github` remote |
 | Cards With Cats | `io.github.crhy.CardsWithCats` | Signed `spaced-github` remote |
 | Brutal Chess | `io.github.crhy.BrutalChess` | Signed `spaced-github` remote |
 
