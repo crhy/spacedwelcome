@@ -46,13 +46,13 @@ class ProgressModelTests(unittest.TestCase):
         model.apply(
             {
                 "event": "app-failure",
-                "app": "voice2text",
-                "name": "Voice2Text AI",
+                "app": "voxa",
+                "name": "Voxa",
                 "source": "Spaced GitHub",
                 "message": "Could not configure spaced-github for this user",
             }
         )
-        self.assertIn("configure", model.rows["voice2text"])
+        self.assertIn("configure", model.rows["voxa"])
         self.assertIn("spaced-github", model.details[-1])
 
 

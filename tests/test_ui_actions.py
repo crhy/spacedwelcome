@@ -10,7 +10,7 @@ import types
 import unittest
 from unittest.mock import MagicMock, patch
 
-from spaced_welcome.catalog import load_catalog
+from spaced_welcome.catalog import SOURCE_ROOT_CATALOG, load_catalog
 from spaced_welcome.help import SUGGESTIONS
 from spaced_welcome.progress import ProgressModel
 
@@ -37,7 +37,7 @@ class UiActionTests(unittest.TestCase):
     def window(self):
         window = MagicMock()
         window.running = False
-        window.catalog = load_catalog()
+        window.catalog = load_catalog(SOURCE_ROOT_CATALOG)
         window.model = ProgressModel()
         window.pending_bazaar = None
         window.rows = {app.key: MagicMock() for app in window.catalog.suggested()}
@@ -79,7 +79,7 @@ class UiActionTests(unittest.TestCase):
             target=window._install_worker, args=("spacedbazaar",), daemon=True
         )
         window.rows["spacedbazaar"].status.set_text.assert_called_once_with("Waiting")
-        window.rows["voice2text"].status.set_text.assert_not_called()
+        window.rows["voxa"].status.set_text.assert_not_called()
         window._set_running.assert_called_once_with(True)
 
     def test_running_guard_prevents_duplicate_install_workers(self):
