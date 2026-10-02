@@ -16,7 +16,7 @@ from typing import Any
 import gi
 
 gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, Gtk  # noqa: E402
+from gi.repository import Gio, GLib, Gtk  # noqa: E402
 
 from .about import COMMUNITY_LINKS, HELP_URL, HOMEPAGE_LABEL, HOMEPAGE_URL, display_version
 from .catalog import App, CatalogError, load_catalog
@@ -48,6 +48,7 @@ window.spaced-welcome, window.spaced-welcome .app-surface {
 .app-row { padding: 8px 10px; border-bottom: 1px solid #30343b; }
 .app-name { font-weight: 700; color: #f4f4f4; }
 .app-status { font-size: 11px; color: #c6c9cf; }
+.app-install { padding: 2px 12px; }
 .status { font-size: 12px; color: #c6c9cf; }
 .help-row {
   background-color: #1f2329;
@@ -60,8 +61,14 @@ textview, textview text { background-color: #111316; color: #d9dce2; }
 """
 
 
+# Spaced Linux points web links at Brave, which is offered here rather than
+# preinstalled. Until a browser is installed, links would otherwise open in a
+# text editor.
+BROWSER_KEY = "brave"
+
+
 class AppRow(Gtk.Box):
-    def __init__(self, app: App):
+    def __init__(self, app: App, on_install):
         super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         self.app = app
         self.get_style_context().add_class("app-row")
@@ -87,6 +94,13 @@ class AppRow(Gtk.Box):
         self.status.get_style_context().add_class("app-status")
         self.pack_start(self.status, False, False, 0)
 
+        self.install_button = Gtk.Button(label="Install")
+        self.install_button.set_tooltip_text(f"Install only {app.name}")
+        self.install_button.set_valign(Gtk.Align.CENTER)
+        self.install_button.get_style_context().add_class("app-install")
+        self.install_button.connect("clicked", lambda _button: on_install(app.key))
+        self.pack_start(self.install_button, False, False, 0)
+
 
 class WelcomeWindow(Gtk.Window):
     def __init__(self):
@@ -102,6 +116,7 @@ class WelcomeWindow(Gtk.Window):
         self.install_process: subprocess.Popen[str] | None = None
         self.running = False
         self.pending_bazaar: tuple[AppSuggestion | None] | None = None
+        self.pending_link: str | None = None
 
         # Installed builds find these through hicolor normally. Add the source
         # tree while developing so screenshots and tests resolve the same art.
@@ -177,7 +192,7 @@ class WelcomeWindow(Gtk.Window):
         app_scroll.set_shadow_type(Gtk.ShadowType.IN)
         app_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         for app in self.catalog.suggested():
-            row = AppRow(app)
+            row = AppRow(app, self._start_install)
             self.rows[app.key] = row
             app_box.pack_start(row, False, False, 0)
         app_scroll.add(app_box)
@@ -199,10 +214,10 @@ class WelcomeWindow(Gtk.Window):
         self.version_label = Gtk.Label(label=f"Version {display_version()}")
         self.version_label.get_style_context().add_class("status")
         about_box.pack_start(self.version_label, False, False, 0)
-        self.homepage_link = Gtk.LinkButton(uri=HOMEPAGE_URL, label=HOMEPAGE_LABEL)
+        self.homepage_link = self._link(HOMEPAGE_URL, HOMEPAGE_LABEL)
         about_box.pack_start(self.homepage_link, False, False, 0)
         for label, url in COMMUNITY_LINKS:
-            about_box.pack_start(Gtk.LinkButton(uri=url, label=label), False, False, 0)
+            about_box.pack_start(self._link(url, label), False, False, 0)
         setup_page.pack_start(about_box, False, False, 0)
 
         self.details_expander = Gtk.Expander(label="Details")
@@ -223,6 +238,55 @@ class WelcomeWindow(Gtk.Window):
 
         self.connect("delete-event", self._on_delete)
         self.connect("destroy", self._on_destroy)
+
+    def _link(self, uri: str, label: str) -> Gtk.LinkButton:
+        link = Gtk.LinkButton(uri=uri, label=label)
+        link.connect("activate-link", lambda button: self._open_link(button.get_uri()))
+        return link
+
+    @staticmethod
+    def _has_browser() -> bool:
+        app = Gio.AppInfo.get_default_for_uri_scheme("https")
+        return app is not None and any(
+            kind in ("x-scheme-handler/https", "x-scheme-handler/http")
+            for kind in (app.get_supported_types() or [])
+        )
+
+    def _open_link(self, uri: str) -> bool:
+        """Open a web link, offering to install Brave when no browser exists."""
+        if self._has_browser():
+            Gtk.show_uri_on_window(self, uri, Gtk.get_current_event_time())
+            return True
+        if self.running:
+            self.status.set_text("A web browser can be installed when the current installation finishes.")
+            return True
+        dialog = Gtk.MessageDialog(
+            transient_for=self,
+            modal=True,
+            message_type=Gtk.MessageType.QUESTION,
+            buttons=Gtk.ButtonsType.NONE,
+            text="Install a web browser?",
+        )
+        dialog.format_secondary_text(
+            "No web browser is installed yet. Install Brave to open this page now?"
+        )
+        dialog.add_buttons("Not Now", Gtk.ResponseType.CANCEL, "Install Brave", Gtk.ResponseType.ACCEPT)
+        dialog.set_default_response(Gtk.ResponseType.ACCEPT)
+        response = dialog.run()
+        dialog.destroy()
+        if response == Gtk.ResponseType.ACCEPT:
+            self.pending_link = uri
+            self.pages.set_visible_child_name("setup")
+            self._start_install(BROWSER_KEY)
+        return True
+
+    def _open_in_browser(self, uri: str) -> None:
+        # The new browser's desktop entry may not be registered yet, so start
+        # it directly rather than through the MIME database.
+        subprocess.Popen(
+            ["flatpak", "run", self.catalog.get(BROWSER_KEY).app_id, uri],
+            start_new_session=True,
+        )
 
     @staticmethod
     def _choice(icon_name: str, heading: str, detail: str) -> Gtk.Button:
@@ -253,9 +317,9 @@ class WelcomeWindow(Gtk.Window):
 
         community = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         community.pack_start(Gtk.Label(label="Get help from the Spaced Linux community", xalign=0), True, True, 0)
-        community.pack_start(Gtk.LinkButton(uri=HELP_URL, label="Online Help"), False, False, 0)
+        community.pack_start(self._link(HELP_URL, "Online Help"), False, False, 0)
         for label, url in COMMUNITY_LINKS:
-            community.pack_start(Gtk.LinkButton(uri=url, label=label), False, False, 0)
+            community.pack_start(self._link(url, label), False, False, 0)
         content.pack_start(community, False, False, 0)
 
         desktop_heading = Gtk.Label(label="Desktop quick start", xalign=0)
@@ -349,6 +413,8 @@ class WelcomeWindow(Gtk.Window):
         self.running = running
         self.suggested_button.set_sensitive(not running)
         self.bazaar_button.set_sensitive(not running)
+        for row in self.rows.values():
+            row.install_button.set_sensitive(not running)
         if running:
             self.spinner.show()
             self.spinner.start()
@@ -438,6 +504,9 @@ class WelcomeWindow(Gtk.Window):
         self.pending_bazaar = None
         if returncode == 0 and pending is not None:
             self._launch_bazaar(pending[0], install_missing=False)
+        link, self.pending_link = self.pending_link, None
+        if returncode == 0 and link is not None:
+            self._open_in_browser(link)
         if returncode != 0 and not self.model.summary.lower().startswith("installed"):
             self.status.set_text("Some applications failed. Open Details for the exact error.")
             self.details_expander.set_expanded(True)
