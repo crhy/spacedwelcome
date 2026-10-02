@@ -78,7 +78,7 @@
       "name": "rhYciv",
       "app_id": "io.github.crhy.rhYciv",
       "branch": "master",
-      "description": "A creative application for Spaced Linux.",
+      "description": "Classic 2D strategy game (Civ 2) reimagined in high resolution.",
       "preinstalled": false,
       "suggested": true,
       "source": {
