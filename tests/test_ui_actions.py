@@ -23,7 +23,8 @@ ui = importlib.util.module_from_spec(spec)
 gtk = types.SimpleNamespace(Box=object, Window=object, main=MagicMock(), main_quit=MagicMock())
 glib = types.SimpleNamespace(idle_add=MagicMock())
 gi = types.SimpleNamespace(require_version=lambda *_args: None)
-repository = types.SimpleNamespace(Gtk=gtk, GLib=glib)
+gio = types.SimpleNamespace(AppInfo=MagicMock())
+repository = types.SimpleNamespace(Gtk=gtk, GLib=glib, Gio=gio)
 with patch.dict(sys.modules, {"gi": gi, "gi.repository": repository}):
     spec.loader.exec_module(ui)
 
@@ -40,6 +41,7 @@ class UiActionTests(unittest.TestCase):
         window.catalog = load_catalog(SOURCE_ROOT_CATALOG)
         window.model = ProgressModel()
         window.pending_bazaar = None
+        window.pending_link = None
         window.rows = {app.key: MagicMock() for app in window.catalog.suggested()}
         return window
 
@@ -50,6 +52,79 @@ class UiActionTests(unittest.TestCase):
         window._start_install.assert_called_once_with("spacedbazaar")
         self.assertEqual(window.pending_bazaar, (suggestion,))
         window.pages.set_visible_child_name.assert_called_once_with("setup")
+
+    def test_app_install_buttons_follow_the_running_state(self):
+        window = self.window()
+        ui.WelcomeWindow._set_running(window, True)
+        for row in window.rows.values():
+            row.install_button.set_sensitive.assert_called_with(False)
+        ui.WelcomeWindow._set_running(window, False)
+        for row in window.rows.values():
+            row.install_button.set_sensitive.assert_called_with(True)
+
+    def test_text_editor_is_not_a_browser(self):
+        editor = MagicMock()
+        editor.get_supported_types.return_value = ["text/plain"]
+        with patch.object(ui.Gio.AppInfo, "get_default_for_uri_scheme", return_value=editor):
+            self.assertFalse(ui.WelcomeWindow._has_browser())
+        browser = MagicMock()
+        browser.get_supported_types.return_value = ["text/html", "x-scheme-handler/https"]
+        with patch.object(ui.Gio.AppInfo, "get_default_for_uri_scheme", return_value=browser):
+            self.assertTrue(ui.WelcomeWindow._has_browser())
+        with patch.object(ui.Gio.AppInfo, "get_default_for_uri_scheme", return_value=None):
+            self.assertFalse(ui.WelcomeWindow._has_browser())
+
+    def dialog_answering(self, response):
+        dialog = MagicMock()
+        dialog.run.return_value = response
+        return patch.multiple(
+            ui.Gtk, create=True,
+            MessageDialog=MagicMock(return_value=dialog),
+            MessageType=types.SimpleNamespace(QUESTION=1),
+            ButtonsType=types.SimpleNamespace(NONE=0),
+            ResponseType=types.SimpleNamespace(ACCEPT=-3, CANCEL=-6),
+        )
+
+    def test_link_without_browser_offers_brave_then_opens_the_page(self):
+        window = self.window()
+        window._has_browser.return_value = False
+        with self.dialog_answering(-3):
+            self.assertTrue(ui.WelcomeWindow._open_link(window, "https://spacedlinux.com"))
+        window._start_install.assert_called_once_with("brave")
+        self.assertEqual(window.pending_link, "https://spacedlinux.com")
+        ui.WelcomeWindow._install_finished(window, 0)
+        window._open_in_browser.assert_called_once_with("https://spacedlinux.com")
+        self.assertIsNone(window.pending_link)
+
+    def test_declined_browser_install_opens_nothing(self):
+        window = self.window()
+        window._has_browser.return_value = False
+        with self.dialog_answering(-6):
+            ui.WelcomeWindow._open_link(window, "https://spacedlinux.com")
+        window._start_install.assert_not_called()
+        self.assertIsNone(window.pending_link)
+
+    def test_failed_browser_install_does_not_open_the_page(self):
+        window = self.window()
+        window.pending_link = "https://spacedlinux.com"
+        ui.WelcomeWindow._install_finished(window, 1)
+        window._open_in_browser.assert_not_called()
+
+    def test_link_with_browser_opens_directly(self):
+        window = self.window()
+        window._has_browser.return_value = True
+        with patch.multiple(ui.Gtk, create=True, show_uri_on_window=MagicMock(),
+                            get_current_event_time=MagicMock(return_value=0)):
+            ui.WelcomeWindow._open_link(window, "https://spacedlinux.com")
+            ui.Gtk.show_uri_on_window.assert_called_once_with(window, "https://spacedlinux.com", 0)
+        window._start_install.assert_not_called()
+
+    def test_browser_opens_through_its_catalog_flatpak(self):
+        window = self.window()
+        with patch.object(ui.subprocess, "Popen") as popen:
+            ui.WelcomeWindow._open_in_browser(window, "https://spacedlinux.com")
+        self.assertEqual(popen.call_args.args[0],
+                         ["flatpak", "run", "com.brave.Browser", "https://spacedlinux.com"])
 
     def test_success_launches_pending_bazaar_without_reinstall_loop(self):
         window = self.window()
