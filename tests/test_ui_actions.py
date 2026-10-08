@@ -231,6 +231,70 @@ class UiActionTests(unittest.TestCase):
         with patch.object(ui.subprocess, "run", side_effect=FileNotFoundError):
             self.assertFalse(ui.WelcomeWindow._warning_hidden(window))
 
+    def test_help_button_label_says_open_when_app_installed(self):
+        window = self.window()
+        window._flatpak_installed.return_value = True
+        suggestion = SUGGESTIONS[0]
+        self.assertEqual(
+            ui.WelcomeWindow._suggestion_label(window, suggestion),
+            f"Open {suggestion.app_name}",
+        )
+
+    def test_help_button_label_says_install_when_app_missing(self):
+        window = self.window()
+        window._flatpak_installed.return_value = False
+        suggestion = SUGGESTIONS[0]
+        self.assertEqual(
+            ui.WelcomeWindow._suggestion_label(window, suggestion),
+            f"Install {suggestion.app_name}",
+        )
+
+    def test_open_button_launches_installed_app_without_bazaar(self):
+        window = self.window()
+        suggestion = SUGGESTIONS[0]
+        with patch.object(ui.subprocess, "Popen") as process:
+            ui.WelcomeWindow._suggestion_checked(window, suggestion, True, None)
+        self.assertEqual(process.call_args.args[0], ["/usr/bin/flatpak", "run", suggestion.app_id])
+        window._start_install.assert_not_called()
+        window.bazaar_confirm.set_visible.assert_not_called()
+
+    def test_install_button_with_bazaar_present_opens_app_page_without_install(self):
+        window = self.window()
+        suggestion = SUGGESTIONS[0]
+        with patch.object(ui.subprocess, "Popen") as process:
+            ui.WelcomeWindow._suggestion_checked(window, suggestion, False, True)
+        self.assertEqual(process.call_args.args[0][-1], suggestion.uri)
+        window._start_install.assert_not_called()
+        window.bazaar_confirm.set_visible.assert_not_called()
+
+    def test_install_button_with_bazaar_missing_asks_confirmation_without_installing(self):
+        window = self.window()
+        suggestion = SUGGESTIONS[0]
+        ui.WelcomeWindow._suggestion_checked(window, suggestion, False, False)
+        self.assertEqual(window.pending_confirm, (suggestion,))
+        window.bazaar_confirm.set_visible.assert_called_once_with(True)
+        window._start_install.assert_not_called()
+
+    def test_cancel_confirmation_installs_nothing_and_hides_panel(self):
+        window = self.window()
+        window.pending_confirm = (SUGGESTIONS[0],)
+        ui.WelcomeWindow._cancel_bazaar_install(window, MagicMock())
+        window.bazaar_confirm.set_visible.assert_called_once_with(False)
+        self.assertIsNone(window.pending_confirm)
+        window._start_install.assert_not_called()
+        window.pages.set_visible_child_name.assert_not_called()
+
+    def test_confirm_confirmation_installs_bazaar_and_opens_app_page(self):
+        window = self.window()
+        suggestion = SUGGESTIONS[0]
+        window.pending_confirm = (suggestion,)
+        ui.WelcomeWindow._confirm_bazaar_install(window, MagicMock())
+        window._start_install.assert_called_once_with("spacedbazaar")
+        self.assertEqual(window.pending_bazaar, (suggestion,))
+        window.pages.set_visible_child_name.assert_called_once_with("setup")
+        window.bazaar_confirm.set_visible.assert_called_once_with(False)
+        self.assertIsNone(window.pending_confirm)
+
 
 if __name__ == "__main__":
     unittest.main()

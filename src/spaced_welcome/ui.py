@@ -123,6 +123,9 @@ class WelcomeWindow(Gtk.Window):
         self.running = False
         self.pending_bazaar: tuple[AppSuggestion | None] | None = None
         self.pending_link: str | None = None
+        self.pending_confirm: tuple[AppSuggestion] | None = None
+        self.help_buttons: dict[str, Gtk.Button] = {}
+        self.help_suggestions: dict[str, AppSuggestion] = {}
 
         # Installed builds find these through hicolor normally. Add the source
         # tree while developing so screenshots and tests resolve the same art.
@@ -168,6 +171,22 @@ class WelcomeWindow(Gtk.Window):
         switcher.set_margin_bottom(14)
         surface.pack_start(switcher, False, False, 0)
         surface.pack_start(self.pages, True, True, 0)
+
+        self.bazaar_confirm = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.bazaar_confirm.get_style_context().add_class("choice-card")
+        self.bazaar_confirm_label = Gtk.Label(label="", xalign=0)
+        self.bazaar_confirm_label.set_line_wrap(True)
+        self.bazaar_confirm.pack_start(self.bazaar_confirm_label, False, False, 0)
+        confirm_actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        self.bazaar_confirm_yes = Gtk.Button(label="Install")
+        self.bazaar_confirm_yes.connect("clicked", self._confirm_bazaar_install)
+        self.bazaar_confirm_no = Gtk.Button(label="Cancel")
+        self.bazaar_confirm_no.connect("clicked", self._cancel_bazaar_install)
+        confirm_actions.pack_start(self.bazaar_confirm_yes, True, True, 0)
+        confirm_actions.pack_start(self.bazaar_confirm_no, True, True, 0)
+        self.bazaar_confirm.pack_start(confirm_actions, False, False, 0)
+        self.bazaar_confirm.set_visible(False)
+        surface.pack_start(self.bazaar_confirm, False, False, 0)
 
         setup_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.pages.add_titled(setup_page, "setup", "Set Up")
@@ -408,8 +427,10 @@ class WelcomeWindow(Gtk.Window):
             copy.pack_start(goal, False, False, 0)
             copy.pack_start(detail, False, False, 0)
             row.pack_start(copy, True, True, 0)
-            open_button = Gtk.Button(label=f"Open {suggestion.app_name}")
+            open_button = Gtk.Button(label=self._suggestion_label(suggestion))
             open_button.connect("clicked", self._open_suggestion, suggestion)
+            self.help_buttons[suggestion.app_id] = open_button
+            self.help_suggestions[suggestion.app_id] = suggestion
             row.pack_start(open_button, False, False, 0)
             content.pack_start(row, False, False, 0)
 
@@ -546,6 +567,7 @@ class WelcomeWindow(Gtk.Window):
 
     def _install_finished(self, returncode: int) -> bool:
         self._set_running(False)
+        self._refresh_help_button_labels()
         pending = self.pending_bazaar
         self.pending_bazaar = None
         if returncode == 0 and pending is not None:
@@ -564,7 +586,100 @@ class WelcomeWindow(Gtk.Window):
     def _open_suggestion(
         self, _button: Gtk.Button, suggestion: AppSuggestion
     ) -> None:
-        self._launch_bazaar(suggestion)
+        if self.running:
+            self.status.set_text("Please wait for the current installation to finish.")
+            return
+        self._set_running(True)
+        self.status.set_text(f"Checking {suggestion.app_name}…")
+        threading.Thread(
+            target=self._check_suggestion, args=(suggestion,), daemon=True
+        ).start()
+
+    def _flatpak_installed(self, app_id: str) -> bool:
+        flatpak = os.environ.get("SPACED_WELCOME_FLATPAK", "/usr/bin/flatpak")
+        try:
+            check = subprocess.run(
+                [flatpak, "info", app_id],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+                timeout=30,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return False
+        return check.returncode == 0
+
+    def _suggestion_label(self, suggestion: AppSuggestion) -> str:
+        action = "Open" if self._flatpak_installed(suggestion.app_id) else "Install"
+        return f"{action} {suggestion.app_name}"
+
+    def _refresh_help_button_labels(self) -> None:
+        for app_id, button in self.help_buttons.items():
+            button.set_label(self._suggestion_label(self.help_suggestions[app_id]))
+
+    def _check_suggestion(self, suggestion: AppSuggestion) -> None:
+        app_installed = self._flatpak_installed(suggestion.app_id)
+        bazaar_installed = None
+        if not app_installed:
+            bazaar_installed = self._flatpak_installed(BAZAAR_APP_ID)
+        GLib.idle_add(self._suggestion_checked, suggestion, app_installed, bazaar_installed)
+
+    def _suggestion_checked(
+        self, suggestion: AppSuggestion, app_installed: bool,
+        bazaar_installed: bool | None,
+    ) -> bool:
+        self._set_running(False)
+        flatpak = os.environ.get("SPACED_WELCOME_FLATPAK", "/usr/bin/flatpak")
+        if app_installed:
+            self.status.set_text(f"Opening {suggestion.app_name}…")
+            try:
+                subprocess.Popen(
+                    [flatpak, "run", suggestion.app_id],
+                    start_new_session=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            except OSError as error:
+                self.status.set_text(f"Could not open {suggestion.app_name}: {error}")
+            else:
+                self.status.set_text(f"{suggestion.app_name} is open.")
+            return False
+        if bazaar_installed:
+            message = f"Opening {suggestion.app_name} in SpacedBazaar…"
+            self.status.set_text(message)
+            try:
+                subprocess.Popen(
+                    bazaar_command(flatpak, suggestion),
+                    start_new_session=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            except OSError as error:
+                self.status.set_text(f"Could not open SpacedBazaar: {error}")
+            else:
+                self.status.set_text("SpacedBazaar is open.")
+            return False
+        self.pending_confirm = (suggestion,)
+        message = "SpacedBazaar is needed to install apps. Install SpacedBazaar now?"
+        self.bazaar_confirm_label.set_text(message)
+        self.bazaar_confirm.set_visible(True)
+        self.status.set_text(message)
+        return False
+
+    def _confirm_bazaar_install(self, _button: Gtk.Button) -> None:
+        self.bazaar_confirm.set_visible(False)
+        pending = self.pending_confirm
+        self.pending_confirm = None
+        if pending is None:
+            return
+        self.pending_bazaar = (pending[0],)
+        self.pages.set_visible_child_name("setup")
+        self._start_install("spacedbazaar")
+
+    def _cancel_bazaar_install(self, _button: Gtk.Button) -> None:
+        self.bazaar_confirm.set_visible(False)
+        self.pending_confirm = None
+        self.status.set_text("Cancelled. Nothing was installed; choose again whenever you like.")
 
     def _launch_bazaar(
         self, suggestion: AppSuggestion | None = None, *, install_missing: bool = True
