@@ -50,6 +50,7 @@ window.spaced-welcome, window.spaced-welcome .app-surface {
 .app-status { font-size: 11px; color: #c6c9cf; }
 .app-install { padding: 2px 12px; }
 .status { font-size: 12px; color: #c6c9cf; }
+.warning { font-size: 15px; font-weight: 700; color: #d9574f; }
 .help-row {
   background-color: #1f2329;
   border: 1px solid #30343b;
@@ -59,6 +60,11 @@ window.spaced-welcome, window.spaced-welcome .app-surface {
 .help-goal { font-size: 14px; font-weight: 700; color: #f4f4f4; }
 textview, textview text { background-color: #111316; color: #d9dce2; }
 """
+
+WARNING_TEXT = (
+    "IF YOU CLOSE THIS APP WITHOUT INSTALLING ANYTHING:\n"
+    "YOU WILL NOT HAVE A BROWSER OR BE ABLE TO PLAY MEDIA FILES."
+)
 
 
 # Spaced Linux points web links at Brave, which is offered here rather than
@@ -134,6 +140,13 @@ class WelcomeWindow(Gtk.Window):
         surface.get_style_context().add_class("app-surface")
         surface.set_border_width(28)
         self.add(surface)
+
+        if not self._warning_hidden():
+            warning = Gtk.Label(label=WARNING_TEXT, xalign=0.5)
+            warning.set_line_wrap(True)
+            warning.get_style_context().add_class("warning")
+            warning.set_margin_bottom(10)
+            surface.pack_start(warning, False, False, 0)
 
         title = Gtk.Label(label="Welcome to Spaced Linux")
         title.get_style_context().add_class("hero-title")
@@ -447,6 +460,39 @@ class WelcomeWindow(Gtk.Window):
         if installed.is_file():
             return str(installed)
         return str(Path(__file__).resolve().parents[2] / "bin" / "spaced-welcome-install")
+
+    def _warning_hidden(self) -> bool:
+        browser = next(
+            (app.app_id for app in self.catalog.suggested() if "browser" in app.name.lower()),
+            None,
+        )
+        players = [app.app_id for app in self.catalog.suggested() if "player" in app.description.lower()]
+        if browser is None or not players:
+            return False
+        flatpak = os.environ.get("SPACED_WELCOME_FLATPAK", "/usr/bin/flatpak")
+        try:
+            check = subprocess.run(
+                [flatpak, "info", browser],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+                timeout=30,
+            )
+            if check.returncode != 0:
+                return False
+            for app_id in players:
+                check = subprocess.run(
+                    [flatpak, "info", app_id],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=False,
+                    timeout=30,
+                )
+                if check.returncode == 0:
+                    return True
+        except (OSError, subprocess.TimeoutExpired):
+            return False
+        return False
 
     def _install_worker(self, selection: str) -> None:
         command = [self._installer_command(), "--install", selection, "--events"]

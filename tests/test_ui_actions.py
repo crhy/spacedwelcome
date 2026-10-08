@@ -207,6 +207,30 @@ class UiActionTests(unittest.TestCase):
         self.assertTrue(popen.call_args.kwargs["start_new_session"])
         self.assertIsNone(window.install_process)
 
+    def test_warning_text_is_exact(self):
+        source = (Path(__file__).parents[1] / "src/spaced_welcome/ui.py").read_text()
+        self.assertIn("IF YOU CLOSE THIS APP WITHOUT INSTALLING ANYTHING:", source)
+        self.assertIn("YOU WILL NOT HAVE A BROWSER OR BE ABLE TO PLAY MEDIA FILES.", source)
+
+    def test_warning_hidden_when_browser_and_media_player_installed(self):
+        window = self.window()
+        with patch.object(ui.subprocess, "run", return_value=types.SimpleNamespace(returncode=0)):
+            self.assertTrue(ui.WelcomeWindow._warning_hidden(window))
+
+    def test_warning_shown_when_media_player_missing(self):
+        window = self.window()
+
+        def check(command, **_kwargs):
+            return types.SimpleNamespace(returncode=0 if command[-1] == "com.brave.Browser" else 1)
+
+        with patch.object(ui.subprocess, "run", side_effect=check):
+            self.assertFalse(ui.WelcomeWindow._warning_hidden(window))
+
+    def test_warning_shown_when_installed_apps_cannot_be_known(self):
+        window = self.window()
+        with patch.object(ui.subprocess, "run", side_effect=FileNotFoundError):
+            self.assertFalse(ui.WelcomeWindow._warning_hidden(window))
+
 
 if __name__ == "__main__":
     unittest.main()
