@@ -107,6 +107,12 @@ class AppRow(Gtk.Box):
         self.install_button.connect("clicked", lambda _button: on_install(app.key))
         self.pack_start(self.install_button, False, False, 0)
 
+    def set_installed(self, installed: bool) -> None:
+        self.install_button.set_label("Open" if installed else "Install")
+        self.install_button.set_tooltip_text(
+            f"Open {self.app.name}" if installed else f"Install only {self.app.name}"
+        )
+
 
 class WelcomeWindow(Gtk.Window):
     def __init__(self):
@@ -208,6 +214,7 @@ class WelcomeWindow(Gtk.Window):
             "Choose applications in SpacedBazaar",
         )
         self.bazaar_button.connect("clicked", self._open_bazaar)
+        self._refresh_bazaar_button()
         actions.pack_start(self.bazaar_button, True, True, 0)
         self.nvidia_button = self._choice(
             "video-display", "Video Drivers", "Check graphics and manage AMD or NVIDIA drivers"
@@ -229,7 +236,8 @@ class WelcomeWindow(Gtk.Window):
         app_scroll.set_shadow_type(Gtk.ShadowType.IN)
         app_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         for app in self.catalog.suggested():
-            row = AppRow(app, self._start_install)
+            row = AppRow(app, self._open_or_install)
+            row.set_installed(self._flatpak_installed(app.app_id))
             self.rows[app.key] = row
             app_box.pack_start(row, False, False, 0)
         app_scroll.add(app_box)
@@ -344,6 +352,7 @@ class WelcomeWindow(Gtk.Window):
         copy.pack_start(detail_label, False, False, 0)
         row.pack_start(copy, True, True, 0)
         button.add(row)
+        button.heading_label = heading_label
         return button
 
     def _build_help_page(self) -> Gtk.Widget:
@@ -573,6 +582,9 @@ class WelcomeWindow(Gtk.Window):
     def _install_finished(self, returncode: int) -> bool:
         self._set_running(False)
         self._refresh_help_button_labels()
+        self._refresh_bazaar_button()
+        for row in self.rows.values():
+            row.set_installed(self._flatpak_installed(row.app.app_id))
         pending = self.pending_bazaar
         self.pending_bazaar = None
         if returncode == 0 and pending is not None:
@@ -584,6 +596,25 @@ class WelcomeWindow(Gtk.Window):
             self.status.set_text("Some applications failed. Open Details for the exact error.")
             self.details_expander.set_expanded(True)
         return False
+
+    def _open_or_install(self, key: str) -> None:
+        """A suggested application's button opens it once it is installed."""
+        app = self.catalog.get(key)
+        if not self._flatpak_installed(app.app_id):
+            self._start_install(key)
+            return
+        flatpak = os.environ.get("SPACED_WELCOME_FLATPAK", "/usr/bin/flatpak")
+        try:
+            subprocess.Popen(
+                [flatpak, "run", app.app_id],
+                start_new_session=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except OSError as error:
+            self.status.set_text(f"Could not open {app.name}: {error}")
+        else:
+            self.status.set_text(f"{app.name} is open.")
 
     def _open_bazaar(self, _button: Gtk.Button) -> None:
         self._launch_bazaar()
@@ -617,6 +648,14 @@ class WelcomeWindow(Gtk.Window):
     def _suggestion_label(self, suggestion: AppSuggestion) -> str:
         action = "Open" if self._flatpak_installed(suggestion.app_id) else "Install"
         return f"{action} {suggestion.app_name}"
+
+    def _bazaar_heading(self) -> str:
+        if self._flatpak_installed(BAZAAR_APP_ID):
+            return "Open SpacedBazaar and pick your own apps."
+        return "Install SpacedBazaar and then pick your own apps."
+
+    def _refresh_bazaar_button(self) -> None:
+        self.bazaar_button.heading_label.set_text(self._bazaar_heading())
 
     def _refresh_help_button_labels(self) -> None:
         for app_id, button in self.help_buttons.items():

@@ -30,10 +30,15 @@ with patch.dict(sys.modules, {"gi": gi, "gi.repository": repository}):
 
 
 class UiActionTests(unittest.TestCase):
-    def test_spacedbazaar_action_uses_clear_install_wording(self):
-        source = (Path(__file__).parents[1] / "src/spaced_welcome/ui.py").read_text()
-        self.assertIn("Install SpacedBazaar and then pick your own apps.", source)
-        self.assertNotIn('"Open SpacedBazaar"', source)
+    def test_spacedbazaar_action_says_install_until_it_is_installed(self):
+        window = MagicMock()
+        window._flatpak_installed.return_value = False
+        self.assertEqual(ui.WelcomeWindow._bazaar_heading(window),
+                         "Install SpacedBazaar and then pick your own apps.")
+        window._flatpak_installed.return_value = True
+        self.assertEqual(ui.WelcomeWindow._bazaar_heading(window),
+                         "Open SpacedBazaar and pick your own apps.")
+        window._flatpak_installed.assert_called_with(ui.BAZAAR_APP_ID)
 
     def window(self):
         window = MagicMock()
@@ -230,6 +235,20 @@ class UiActionTests(unittest.TestCase):
         window = self.window()
         with patch.object(ui.subprocess, "run", side_effect=FileNotFoundError):
             self.assertFalse(ui.WelcomeWindow._warning_hidden(window))
+
+    def test_suggested_row_opens_an_installed_app_and_installs_a_missing_one(self):
+        window = self.window()
+        app = window.catalog.suggested()[0]
+        window._flatpak_installed.return_value = True
+        with patch.object(ui.subprocess, "Popen") as popen:
+            ui.WelcomeWindow._open_or_install(window, app.key)
+        self.assertEqual(popen.call_args.args[0][1:], ["run", app.app_id])
+        window._start_install.assert_not_called()
+        window._flatpak_installed.return_value = False
+        with patch.object(ui.subprocess, "Popen") as popen:
+            ui.WelcomeWindow._open_or_install(window, app.key)
+        popen.assert_not_called()
+        window._start_install.assert_called_once_with(app.key)
 
     def test_help_button_label_says_open_when_app_installed(self):
         window = self.window()
