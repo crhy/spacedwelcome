@@ -30,10 +30,15 @@ with patch.dict(sys.modules, {"gi": gi, "gi.repository": repository}):
 
 
 class UiActionTests(unittest.TestCase):
-    def test_spacedbazaar_action_uses_clear_install_wording(self):
-        source = (Path(__file__).parents[1] / "src/spaced_welcome/ui.py").read_text()
-        self.assertIn("Install SpacedBazaar and then pick your own apps.", source)
-        self.assertNotIn('"Open SpacedBazaar"', source)
+    def test_spacedbazaar_action_says_install_until_it_is_installed(self):
+        window = MagicMock()
+        window._flatpak_installed.return_value = False
+        self.assertEqual(ui.WelcomeWindow._bazaar_heading(window),
+                         "Install SpacedBazaar and then pick your own apps.")
+        window._flatpak_installed.return_value = True
+        self.assertEqual(ui.WelcomeWindow._bazaar_heading(window),
+                         "Open SpacedBazaar and pick your own apps.")
+        window._flatpak_installed.assert_called_with(ui.BAZAAR_APP_ID)
 
     def window(self):
         window = MagicMock()
@@ -206,6 +211,108 @@ class UiActionTests(unittest.TestCase):
             ui.WelcomeWindow._install_worker(window, "suggested")
         self.assertTrue(popen.call_args.kwargs["start_new_session"])
         self.assertIsNone(window.install_process)
+
+    def test_warning_text_is_exact(self):
+        source = (Path(__file__).parents[1] / "src/spaced_welcome/ui.py").read_text()
+        self.assertIn("IF YOU CLOSE THIS APP WITHOUT INSTALLING ANYTHING:", source)
+        self.assertIn("YOU WILL NOT HAVE A BROWSER OR BE ABLE TO PLAY MEDIA FILES.", source)
+
+    def test_warning_hidden_when_browser_and_media_player_installed(self):
+        window = self.window()
+        with patch.object(ui.subprocess, "run", return_value=types.SimpleNamespace(returncode=0)):
+            self.assertTrue(ui.WelcomeWindow._warning_hidden(window))
+
+    def test_warning_shown_when_media_player_missing(self):
+        window = self.window()
+
+        def check(command, **_kwargs):
+            return types.SimpleNamespace(returncode=0 if command[-1] == "com.brave.Browser" else 1)
+
+        with patch.object(ui.subprocess, "run", side_effect=check):
+            self.assertFalse(ui.WelcomeWindow._warning_hidden(window))
+
+    def test_warning_shown_when_installed_apps_cannot_be_known(self):
+        window = self.window()
+        with patch.object(ui.subprocess, "run", side_effect=FileNotFoundError):
+            self.assertFalse(ui.WelcomeWindow._warning_hidden(window))
+
+    def test_suggested_row_opens_an_installed_app_and_installs_a_missing_one(self):
+        window = self.window()
+        app = window.catalog.suggested()[0]
+        window._flatpak_installed.return_value = True
+        with patch.object(ui.subprocess, "Popen") as popen:
+            ui.WelcomeWindow._open_or_install(window, app.key)
+        self.assertEqual(popen.call_args.args[0][1:], ["run", app.app_id])
+        window._start_install.assert_not_called()
+        window._flatpak_installed.return_value = False
+        with patch.object(ui.subprocess, "Popen") as popen:
+            ui.WelcomeWindow._open_or_install(window, app.key)
+        popen.assert_not_called()
+        window._start_install.assert_called_once_with(app.key)
+
+    def test_help_button_label_says_open_when_app_installed(self):
+        window = self.window()
+        window._flatpak_installed.return_value = True
+        suggestion = SUGGESTIONS[0]
+        self.assertEqual(
+            ui.WelcomeWindow._suggestion_label(window, suggestion),
+            f"Open {suggestion.app_name}",
+        )
+
+    def test_help_button_label_says_install_when_app_missing(self):
+        window = self.window()
+        window._flatpak_installed.return_value = False
+        suggestion = SUGGESTIONS[0]
+        self.assertEqual(
+            ui.WelcomeWindow._suggestion_label(window, suggestion),
+            f"Install {suggestion.app_name}",
+        )
+
+    def test_open_button_launches_installed_app_without_bazaar(self):
+        window = self.window()
+        suggestion = SUGGESTIONS[0]
+        with patch.object(ui.subprocess, "Popen") as process:
+            ui.WelcomeWindow._suggestion_checked(window, suggestion, True, None)
+        self.assertEqual(process.call_args.args[0], ["/usr/bin/flatpak", "run", suggestion.app_id])
+        window._start_install.assert_not_called()
+        window.bazaar_confirm.set_visible.assert_not_called()
+
+    def test_install_button_with_bazaar_present_opens_app_page_without_install(self):
+        window = self.window()
+        suggestion = SUGGESTIONS[0]
+        with patch.object(ui.subprocess, "Popen") as process:
+            ui.WelcomeWindow._suggestion_checked(window, suggestion, False, True)
+        self.assertEqual(process.call_args.args[0][-1], suggestion.uri)
+        window._start_install.assert_not_called()
+        window.bazaar_confirm.set_visible.assert_not_called()
+
+    def test_install_button_with_bazaar_missing_asks_confirmation_without_installing(self):
+        window = self.window()
+        suggestion = SUGGESTIONS[0]
+        ui.WelcomeWindow._suggestion_checked(window, suggestion, False, False)
+        self.assertEqual(window.pending_confirm, (suggestion,))
+        window.bazaar_confirm.set_visible.assert_called_once_with(True)
+        window._start_install.assert_not_called()
+
+    def test_cancel_confirmation_installs_nothing_and_hides_panel(self):
+        window = self.window()
+        window.pending_confirm = (SUGGESTIONS[0],)
+        ui.WelcomeWindow._cancel_bazaar_install(window, MagicMock())
+        window.bazaar_confirm.set_visible.assert_called_once_with(False)
+        self.assertIsNone(window.pending_confirm)
+        window._start_install.assert_not_called()
+        window.pages.set_visible_child_name.assert_not_called()
+
+    def test_confirm_confirmation_installs_bazaar_and_opens_app_page(self):
+        window = self.window()
+        suggestion = SUGGESTIONS[0]
+        window.pending_confirm = (suggestion,)
+        ui.WelcomeWindow._confirm_bazaar_install(window, MagicMock())
+        window._start_install.assert_called_once_with("spacedbazaar")
+        self.assertEqual(window.pending_bazaar, (suggestion,))
+        window.pages.set_visible_child_name.assert_called_once_with("setup")
+        window.bazaar_confirm.set_visible.assert_called_once_with(False)
+        self.assertIsNone(window.pending_confirm)
 
 
 if __name__ == "__main__":

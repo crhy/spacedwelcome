@@ -24,6 +24,9 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.1.19" date="2026-10-08">
+      <description><p>Buttons say Open for an application that is already installed and Install for one that is not, including SpacedBazaar. Open starts the application directly. A warning at the top explains what is missing until a browser and media player are installed.</p></description>
+    </release>
     <release version="0.1.18" date="2026-10-02">
       <description><p>Each suggested application has its own Install button. Web links offer to install Brave when no browser is installed, instead of opening in a text editor.</p></description>
     </release>
