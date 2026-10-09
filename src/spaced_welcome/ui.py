@@ -185,7 +185,12 @@ class WelcomeWindow(Gtk.Window):
         confirm_actions.pack_start(self.bazaar_confirm_yes, True, True, 0)
         confirm_actions.pack_start(self.bazaar_confirm_no, True, True, 0)
         self.bazaar_confirm.pack_start(confirm_actions, False, False, 0)
+        # main() calls show_all() on the window, which would reveal the card
+        # at start-up. Show its children once, hide it, and keep it out of
+        # later show_all() calls so only set_visible() controls it.
+        self.bazaar_confirm.show_all()
         self.bazaar_confirm.set_visible(False)
+        self.bazaar_confirm.set_no_show_all(True)
         surface.pack_start(self.bazaar_confirm, False, False, 0)
 
         setup_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
