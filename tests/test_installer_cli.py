@@ -91,6 +91,12 @@ class InstallerCliTests(unittest.TestCase):
                     print(name + '\t' + os.environ.get('FAKE_REMOTE_URL', default_url))
                 raise SystemExit(0)
             if command == 'remote-add':
+                # remote-add has no --noninteractive option (unlike install).
+                supported = {'--user', '--if-not-exists'}
+                for option in args[1:]:
+                    if option.startswith('-') and option not in supported:
+                        print('error: Unknown option ' + option)
+                        raise SystemExit(1)
                 raise SystemExit(int(os.environ.get('FAKE_REMOTE_ADD_FAILURE', '0')))
             if command == 'install':
                 counter = pathlib.Path(os.environ['FAKE_COUNTER'])
