@@ -24,6 +24,9 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.1.21" date="2026-10-30">
+      <description><p>Fixes Flatpak source registration on fresh accounts so suggested applications and SpacedBazaar can install.</p></description>
+    </release>
     <release version="0.1.20" date="2026-10-30">
       <description><p>Adds Spaced RGB to suggested applications, installed from the signed Spaced GitHub repository.</p></description>
     </release>

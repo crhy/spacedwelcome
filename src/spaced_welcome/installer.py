@@ -162,7 +162,6 @@ class Installer:
                 self.flatpak,
                 "remote-add",
                 "--user",
-                "--noninteractive",
                 "--if-not-exists",
                 name,
                 descriptor,
