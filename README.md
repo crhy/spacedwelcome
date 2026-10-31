@@ -33,6 +33,7 @@ verified CRHY applications:
 
 | Application | Flatpak ID | Delivery |
 | --- | --- | --- |
+| Spaced RGB | `io.github.crhy.SpacedRGB` | Signed `spaced-github` remote |
 | SpacedBazaar | `io.github.crhy.SpacedBazaar` | Signed `spaced-github` remote |
 | rhYciv | `io.github.crhy.rhYciv` | Signed `spaced-github` remote |
 | Voxa | `io.github.crhy.voxa` | Signed `spaced-github` remote |
@@ -71,7 +72,7 @@ make check
 make deb
 ```
 
-The package artifact is exactly `dist/spaced-welcome_0.1.12_all.deb`.
+The package artifact is exactly `dist/spaced-welcome_0.1.20_all.deb`.
 
 The behavioral test harness can inject commands and paths without weakening
 production validation:
