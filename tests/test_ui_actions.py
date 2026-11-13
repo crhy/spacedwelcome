@@ -212,6 +212,11 @@ class UiActionTests(unittest.TestCase):
         self.assertTrue(popen.call_args.kwargs["start_new_session"])
         self.assertIsNone(window.install_process)
 
+    def test_recommended_button_is_visually_highlighted(self):
+        self.assertIn(b".choice-card.recommended-choice", ui.CSS)
+        source = (Path(__file__).parents[1] / "src/spaced_welcome/ui.py").read_text()
+        self.assertIn('add_class("recommended-choice")', source)
+
     def test_warning_text_is_exact(self):
         source = (Path(__file__).parents[1] / "src/spaced_welcome/ui.py").read_text()
         self.assertIn("IF YOU CLOSE THIS APP WITHOUT INSTALLING ANYTHING:", source)

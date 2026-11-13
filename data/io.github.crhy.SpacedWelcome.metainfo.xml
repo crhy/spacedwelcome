@@ -24,6 +24,9 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.1.22" date="2026-11-13">
+      <description><p>Highlights a lean one-click baseline of SpacedBazaar, Brave, LibreOffice, and VLC while leaving hardware-specific tools, Voxa, Audacious, and games available for individual installation.</p></description>
+    </release>
     <release version="0.1.21" date="2026-10-30">
       <description><p>Fixes Flatpak source registration on fresh accounts so suggested applications and SpacedBazaar can install.</p></description>
     </release>

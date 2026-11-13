@@ -57,6 +57,7 @@ class InstallerCliTests(unittest.TestCase):
                     "description": "Test application",
                     "preinstalled": preinstalled,
                     "suggested": not preinstalled,
+                    "default_install": not preinstalled,
                     "source": {"type": source},
                 }
             ],
