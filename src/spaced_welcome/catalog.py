@@ -30,6 +30,7 @@ class App:
     description: str
     source_type: str
     suggested: bool
+    default_install: bool
     preinstalled: bool
     branch: str
 
@@ -51,6 +52,10 @@ class Catalog:
 
     def suggested(self) -> list[App]:
         return [app for app in self.apps if app.suggested and not app.preinstalled]
+
+    def default_install(self) -> list[App]:
+        """Return the small, general-purpose first-run application bundle."""
+        return [app for app in self.suggested() if app.default_install]
 
 
 def _catalog_path(path: str | os.PathLike[str] | None = None) -> Path:
@@ -101,6 +106,9 @@ def load_catalog(path: str | os.PathLike[str] | None = None) -> Catalog:
             raise CatalogError(f"{name} source may only define its type")
         if not isinstance(branch, str) or not BRANCH_RE.fullmatch(branch):
             raise CatalogError(f"{name} needs an explicit valid Flatpak branch")
+        for flag in ("suggested", "default_install", "preinstalled"):
+            if flag in raw and not isinstance(raw[flag], bool):
+                raise CatalogError(f"{name} {flag} must be true or false")
 
         app = App(
             key=key,
@@ -109,11 +117,14 @@ def load_catalog(path: str | os.PathLike[str] | None = None) -> Catalog:
             description=str(raw.get("description", "")).strip(),
             source_type=source_type,
             suggested=bool(raw.get("suggested", False)),
+            default_install=bool(raw.get("default_install", False)),
             preinstalled=bool(raw.get("preinstalled", False)),
             branch=branch,
         )
         if app.preinstalled and app.suggested:
             raise CatalogError(f"Preinstalled application {name} cannot be suggested")
+        if app.default_install and not app.suggested:
+            raise CatalogError(f"Default application {name} must also be suggested")
         seen_keys.add(key)
         seen_ids.add(app_id)
         apps.append(app)

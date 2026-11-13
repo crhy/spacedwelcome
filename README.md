@@ -41,7 +41,10 @@ verified CRHY applications:
 | Brutal Chess | `io.github.crhy.BrutalChess` | Signed `spaced-github` remote |
 
 Audacious, Brave, LibreOffice, and VLC are suggested from Flathub's `stable`
-branch. Every catalog entry names its branch explicitly so a missing remote
+branch. The highlighted one-click baseline installs only SpacedBazaar, Brave,
+LibreOffice, and VLC; hardware-specific tools, Voxa, Audacious, and games stay
+visible for individual installation without being preselected. Every catalog
+entry names its branch explicitly so a missing remote
 branch fails validation before release instead of on an end user's machine.
 
 SpacedBazaar's publication job validates each curated GitHub release bundle,
@@ -72,7 +75,7 @@ make check
 make deb
 ```
 
-The package artifact is exactly `dist/spaced-welcome_0.1.21_all.deb`.
+The package artifact is exactly `dist/spaced-welcome_0.1.22_all.deb`.
 
 The behavioral test harness can inject commands and paths without weakening
 production validation:
@@ -92,7 +95,8 @@ Flatpak build uses the standard host Flatpak portal for the same operations.
 
 Spaced Linux should install only the small native `spaced-welcome` Debian
 package in the live filesystem. On the installed system, the user can choose
-**Install Suggested Apps** to fetch SpacedBazaar and the rest of the catalog.
+**Install Recommended Essentials** to fetch the small general-purpose baseline;
+every other suggestion remains available through its own Install button.
 
 ## License
 

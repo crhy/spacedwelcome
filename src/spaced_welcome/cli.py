@@ -42,6 +42,7 @@ def _list(catalog: Catalog, as_json: bool) -> int:
             "app_id": app.app_id,
             "source": app.source_label,
             "suggested": app.suggested,
+            "default_install": app.default_install,
             "preinstalled": app.preinstalled,
         }
         for app in catalog.apps
@@ -55,6 +56,8 @@ def _list(catalog: Catalog, as_json: bool) -> int:
             flags.append("preinstalled")
         if row["suggested"]:
             flags.append("suggested")
+        if row["default_install"]:
+            flags.append("default")
         suffix = f" ({', '.join(flags)})" if flags else ""
         print(f"{row['key']:<18} {row['name']:<22} {row['source']}{suffix}")
     return 0
@@ -62,7 +65,7 @@ def _list(catalog: Catalog, as_json: bool) -> int:
 
 def _selection(catalog: Catalog, value: str) -> list:
     if value == "suggested":
-        return catalog.suggested()
+        return catalog.default_install()
     if value == "all":
         return [app for app in catalog.apps if not app.preinstalled]
     keys = [key.strip() for key in value.split(",") if key.strip()]

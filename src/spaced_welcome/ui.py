@@ -42,6 +42,11 @@ window.spaced-welcome, window.spaced-welcome .app-surface {
 }
 .choice-card:hover { background-color: #262b33; border-color: #6e9de8; }
 .choice-card:active { background-color: #171a1f; border-color: #4f6bb0; }
+.choice-card.recommended-choice {
+  background-color: #23334a;
+  border: 2px solid #6e9de8;
+}
+.choice-card.recommended-choice:hover { background-color: #2a405e; }
 .choice-title { font-size: 16px; font-weight: 700; color: #f4f4f4; }
 .choice-detail, .app-detail { font-size: 11px; color: #b8bbc2; }
 .choice-icon, .source-label { color: #6e9de8; }
@@ -204,8 +209,11 @@ class WelcomeWindow(Gtk.Window):
 
         actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         self.suggested_button = self._choice(
-            "system-software-install", "Install Suggested Apps", "Flathub and signed Spaced GitHub apps"
+            "system-software-install",
+            "Install Recommended Essentials",
+            "SpacedBazaar, Brave, LibreOffice, and VLC",
         )
+        self.suggested_button.get_style_context().add_class("recommended-choice")
         self.suggested_button.connect("clicked", self._start_suggested_install)
         actions.pack_start(self.suggested_button, True, True, 0)
         self.bazaar_button = self._choice(
@@ -477,7 +485,7 @@ class WelcomeWindow(Gtk.Window):
         if self.running:
             return
         self.model = ProgressModel()
-        selected = self.catalog.suggested() if selection == "suggested" else [self.catalog.get(selection)]
+        selected = self.catalog.default_install() if selection == "suggested" else [self.catalog.get(selection)]
         for app in selected:
             if app.key in self.rows:
                 self.rows[app.key].status.set_text("Waiting")

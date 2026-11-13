@@ -46,6 +46,10 @@ class CatalogTests(unittest.TestCase):
             ["spacedbazaar", "spacedrgb", "brave", "libreoffice", "voxa", "audacious", "vlc", "rhyciv", "brutal-chess", "cards-with-cats"],
         )
         self.assertEqual(
+            [app.key for app in catalog.default_install()],
+            ["spacedbazaar", "brave", "libreoffice", "vlc"],
+        )
+        self.assertEqual(
             [app.key for app in catalog.suggested() if app.source_type == "spaced-github"],
             ["spacedbazaar", "spacedrgb", "voxa", "rhyciv", "brutal-chess", "cards-with-cats"],
         )
@@ -70,6 +74,24 @@ class CatalogTests(unittest.TestCase):
             path = Path(directory) / "catalog.json"
             path.write_text(json.dumps(payload), encoding="utf-8")
             with self.assertRaisesRegex(CatalogError, "explicit valid Flatpak branch"):
+                load_catalog(path)
+
+    def test_catalog_rejects_non_boolean_policy_flags(self):
+        payload = {
+            "schema_version": 1,
+            "apps": [{
+                "key": "bad-flag",
+                "name": "Bad Flag",
+                "app_id": "io.example.BadFlag",
+                "branch": "stable",
+                "suggested": "yes",
+                "source": {"type": "flathub"},
+            }],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "catalog.json"
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            with self.assertRaisesRegex(CatalogError, "suggested must be true or false"):
                 load_catalog(path)
 
     def test_catalog_rejects_source_coordinates_outside_central_policy(self):
