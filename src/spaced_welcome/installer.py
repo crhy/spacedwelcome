@@ -14,6 +14,7 @@ import time
 from typing import Any
 
 from .catalog import App, Catalog, CatalogError
+from .session import REBOOT_MESSAGE, is_live_session
 
 
 EventCallback = Callable[[dict[str, Any]], None]
@@ -230,6 +231,9 @@ class Installer:
         config_file.chmod(0o600)
 
     def install_app(self, app: App) -> bool:
+        if is_live_session():
+            self.emit("app-failure", app, message=REBOOT_MESSAGE)
+            return False
         self.emit(
             "app-start",
             app,
@@ -281,6 +285,8 @@ class Installer:
             return False
 
     def install(self, apps: Iterable[App]) -> bool:
+        if is_live_session():
+            raise InstallError(REBOOT_MESSAGE)
         selected = list(apps)
         if not selected:
             self.emit("summary", message="No applications were selected")

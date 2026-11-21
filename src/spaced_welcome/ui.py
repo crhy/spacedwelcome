@@ -22,6 +22,7 @@ from .about import COMMUNITY_LINKS, HELP_URL, HOMEPAGE_LABEL, HOMEPAGE_URL, disp
 from .catalog import App, CatalogError, load_catalog
 from .help import BAZAAR_APP_ID, GUIDES, SUGGESTIONS, AppSuggestion, bazaar_command
 from .progress import ProgressModel
+from .session import REBOOT_MESSAGE, is_live_session
 
 
 CSS = b"""
@@ -842,7 +843,7 @@ def _state_file() -> Path:
 
 
 def _is_live_session() -> bool:
-    return Path("/run/live/medium").exists() or Path("/lib/live/mount/medium").exists()
+    return is_live_session()
 
 
 def _mark_shown() -> bool:
@@ -858,7 +859,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--page", choices=("setup", "help"), default="setup",
                         help="open the setup or Help & Apps page")
     args = parser.parse_args(argv)
-    if args.first_run and (_is_live_session() or _state_file().exists()):
+    if _is_live_session():
+        dialog = Gtk.MessageDialog(
+            message_type=Gtk.MessageType.INFO,
+            buttons=Gtk.ButtonsType.CLOSE,
+            text="Restart into your installed system first",
+        )
+        dialog.format_secondary_text(REBOOT_MESSAGE)
+        dialog.run()
+        dialog.destroy()
+        return 1
+    if args.first_run and _state_file().exists():
         return 0
     try:
         window = WelcomeWindow()

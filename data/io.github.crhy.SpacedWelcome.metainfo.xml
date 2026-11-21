@@ -24,6 +24,9 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.1.23" date="2026-11-21">
+      <description><p>In the live installer session, Welcome explains that Spaced Linux must be installed and the computer restarted before applications can be installed, instead of failing.</p></description>
+    </release>
     <release version="0.1.22" date="2026-11-13">
       <description><p>Highlights a lean one-click baseline of SpacedBazaar, Brave, LibreOffice, and VLC while leaving hardware-specific tools, Voxa, Audacious, and games available for individual installation.</p></description>
     </release>

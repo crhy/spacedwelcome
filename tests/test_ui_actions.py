@@ -30,6 +30,20 @@ with patch.dict(sys.modules, {"gi": gi, "gi.repository": repository}):
 
 
 class UiActionTests(unittest.TestCase):
+    def test_live_launches_only_show_reboot_notice(self):
+        for args in ([], ["--first-run"], ["--page", "help"]):
+            with self.subTest(args=args), patch.object(ui, "_is_live_session", return_value=True), patch.object(
+                ui, "Gtk", MagicMock()
+            ) as dialog_gtk, patch.object(ui, "WelcomeWindow") as window, patch.object(
+                ui, "_mark_shown"
+            ) as mark:
+                self.assertEqual(ui.main(args), 1)
+                window.assert_not_called()
+                mark.assert_not_called()
+                dialog_gtk.MessageDialog.return_value.format_secondary_text.assert_called_once_with(ui.REBOOT_MESSAGE)
+                dialog_gtk.MessageDialog.return_value.run.assert_called_once()
+                dialog_gtk.MessageDialog.return_value.destroy.assert_called_once()
+
     def test_spacedbazaar_action_says_install_until_it_is_installed(self):
         window = MagicMock()
         window._flatpak_installed.return_value = False
