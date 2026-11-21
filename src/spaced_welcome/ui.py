@@ -859,6 +859,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--page", choices=("setup", "help"), default="setup",
                         help="open the setup or Help & Apps page")
     args = parser.parse_args(argv)
+    # Autostart in the live installer session stays silent (as before 0.1.23): someone trying Spaced from a USB must
+    # not be greeted by a warning. Only a manual launch explains why apps cannot be installed there.
+    if args.first_run and _is_live_session():
+        return 0
     if _is_live_session():
         dialog = Gtk.MessageDialog(
             message_type=Gtk.MessageType.INFO,

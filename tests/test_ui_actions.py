@@ -31,7 +31,7 @@ with patch.dict(sys.modules, {"gi": gi, "gi.repository": repository}):
 
 class UiActionTests(unittest.TestCase):
     def test_live_launches_only_show_reboot_notice(self):
-        for args in ([], ["--first-run"], ["--page", "help"]):
+        for args in ([], ["--page", "help"]):
             with self.subTest(args=args), patch.object(ui, "_is_live_session", return_value=True), patch.object(
                 ui, "Gtk", MagicMock()
             ) as dialog_gtk, patch.object(ui, "WelcomeWindow") as window, patch.object(
@@ -43,6 +43,15 @@ class UiActionTests(unittest.TestCase):
                 dialog_gtk.MessageDialog.return_value.format_secondary_text.assert_called_once_with(ui.REBOOT_MESSAGE)
                 dialog_gtk.MessageDialog.return_value.run.assert_called_once()
                 dialog_gtk.MessageDialog.return_value.destroy.assert_called_once()
+
+    def test_live_autostart_is_silent(self):
+        # Someone trying Spaced from a USB must not be greeted by a warning dialog at login.
+        with patch.object(ui, "_is_live_session", return_value=True), patch.object(ui, "Gtk", MagicMock()) as gtk, \
+                patch.object(ui, "WelcomeWindow") as window, patch.object(ui, "_mark_shown") as mark:
+            self.assertEqual(ui.main(["--first-run"]), 0)
+            gtk.MessageDialog.assert_not_called()
+            window.assert_not_called()
+            mark.assert_not_called()
 
     def test_spacedbazaar_action_says_install_until_it_is_installed(self):
         window = MagicMock()
